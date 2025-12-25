@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
+import confetti from 'canvas-confetti'
 import { useGameStore } from '@/src/store/gameStore'
 import { TwofoldText } from '@/src/components/game/TwofoldText'
 import { TouchZones } from '@/src/components/game/TouchZones'
@@ -36,6 +37,7 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [shuffleMode, setShuffleMode] = useState(true)
   const [playedTrackIndices, setPlayedTrackIndices] = useState<Set<number>>(new Set())
+  const [celebratingTeam, setCelebratingTeam] = useState<string | null>(null)
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const zoneRefs = useRef<Map<string, DOMRect>>(new Map())
   const playerRef = useRef<any>(null)
@@ -293,11 +295,12 @@ export function GameClient({ accessToken }: GameClientProps) {
         setAnsweredCorrectly(true)
         useGameStore.getState().updateScore(droppedOnTeamId, 100)
         console.log(`${team?.name} earned 100 points!`)
+        celebrate(droppedOnTeamId)
 
         // Advance to next question after a delay
         setTimeout(() => {
           handleNextQuestion()
-        }, 1500)
+        }, 3000) // Longer delay to enjoy celebration
       } else {
         // Disqualify the team from trying again
         const newDisqualified = new Set([...disqualifiedTeams, droppedOnTeamId])
@@ -361,6 +364,55 @@ export function GameClient({ accessToken }: GameClientProps) {
     router.push('/setup')
   }
 
+  const celebrate = (teamId: string) => {
+    const team = teams.find(t => t.id === teamId)
+    if (!team) return
+
+    // Set celebrating state for visual effects
+    setCelebratingTeam(teamId)
+    setTimeout(() => setCelebratingTeam(null), 3000)
+
+    // Convert hex color to RGB for confetti
+    const hex = team.color.replace('#', '')
+    const r = parseInt(hex.substr(0, 2), 16)
+    const g = parseInt(hex.substr(2, 2), 16)
+    const b = parseInt(hex.substr(4, 2), 16)
+
+    // Create confetti burst with team colors
+    const colors = [
+      `rgb(${r}, ${g}, ${b})`,
+      `rgb(${Math.min(r + 40, 255)}, ${Math.min(g + 40, 255)}, ${Math.min(b + 40, 255)})`,
+      '#FFD700', // Gold
+      '#FFFFFF', // White
+    ]
+
+    // Multiple confetti bursts for more celebration
+    const duration = 2000
+    const end = Date.now() + duration
+
+    const frame = () => {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.6 },
+        colors: colors,
+      })
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.6 },
+        colors: colors,
+      })
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame)
+      }
+    }
+    frame()
+  }
+
   const handleHasAnswered = (answered: boolean) => {
     if (!answered) {
       // Team didn't answer - clear buzzer and let other teams try
@@ -380,10 +432,11 @@ export function GameClient({ accessToken }: GameClientProps) {
   const handleBuzzCorrect = () => {
     if (!buzzedTeam) return
 
-    // Award points
+    // Award points and celebrate!
     useGameStore.getState().updateScore(buzzedTeam, 100)
     const team = teams.find(t => t.id === buzzedTeam)
     console.log(`${team?.name} earned 100 points!`)
+    celebrate(buzzedTeam)
 
     // Clear buzzer and advance
     setBuzzedTeam(null)
@@ -391,7 +444,7 @@ export function GameClient({ accessToken }: GameClientProps) {
     setAnsweredCorrectly(true)
     setTimeout(() => {
       handleNextQuestion()
-    }, 1500)
+    }, 3000) // Longer delay to enjoy celebration
   }
 
   const handleBuzzIncorrect = () => {
@@ -481,6 +534,7 @@ export function GameClient({ accessToken }: GameClientProps) {
         zones={touchZones}
         teams={teams}
         disqualifiedTeams={disqualifiedTeams}
+        celebratingTeam={celebratingTeam}
         onZoneTouch={handleZoneTouch}
         onZoneMount={(zoneId, rect) => {
           zoneRefs.current.set(zoneId, rect)

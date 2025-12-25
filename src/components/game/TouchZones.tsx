@@ -7,6 +7,7 @@ interface TouchZonesProps {
   zones: TouchZone[]
   teams: Team[]
   disqualifiedTeams: Set<string>
+  celebratingTeam: string | null
   onZoneTouch: (zoneId: string) => void
   onZoneMount?: (zoneId: string, rect: DOMRect) => void
 }
@@ -22,7 +23,7 @@ const ZONE_STYLES: Record<TouchZone['position'], string> = {
   'right-middle': 'top-1/2 right-0 -translate-y-1/2',
 }
 
-export function TouchZones({ zones, teams, disqualifiedTeams, onZoneTouch, onZoneMount }: TouchZonesProps) {
+export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, onZoneTouch, onZoneMount }: TouchZonesProps) {
   const zoneElementRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export function TouchZones({ zones, teams, disqualifiedTeams, onZoneTouch, onZon
     <>
       {zones.map((zone) => {
         const isDisqualified = disqualifiedTeams.has(zone.teamId)
+        const isCelebrating = celebratingTeam === zone.teamId
         return (
           <button
             key={zone.id}
@@ -64,13 +66,25 @@ export function TouchZones({ zones, teams, disqualifiedTeams, onZoneTouch, onZon
             onTouchStart={() => handleTouchStart(zone.id)}
             onClick={() => handleTouchStart(zone.id)}
             className={`absolute w-32 h-32 rounded-lg border-4 transition-all active:scale-95 ${ZONE_STYLES[zone.position]} ${
-              isDisqualified ? 'border-red-500 opacity-50' : 'border-white/20'
+              isDisqualified
+                ? 'border-red-500 opacity-50'
+                : isCelebrating
+                ? 'border-yellow-400 border-8 animate-pulse scale-110 shadow-2xl'
+                : 'border-white/20'
             }`}
-            style={{ backgroundColor: zone.color }}
+            style={{
+              backgroundColor: zone.color,
+              boxShadow: isCelebrating ? `0 0 40px ${zone.color}, 0 0 80px ${zone.color}` : undefined
+            }}
           >
             {isDisqualified && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-red-500 text-6xl font-bold">✗</div>
+                <div className="text-red-500 text-6xl font-bold drop-shadow-lg">✗</div>
+              </div>
+            )}
+            {isCelebrating && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-yellow-400 text-7xl animate-bounce">🎉</div>
               </div>
             )}
             <span className="sr-only">Team Zone {zone.teamId}</span>
