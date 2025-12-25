@@ -31,7 +31,9 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [playerReady, setPlayerReady] = useState(false)
   const [gameCompleted, setGameCompleted] = useState(false)
   const [buzzedTeam, setBuzzedTeam] = useState<string | null>(null)
+  const [showAnswerPrompt, setShowAnswerPrompt] = useState(false)
   const [disqualifiedTeams, setDisqualifiedTeams] = useState<Set<string>>(new Set())
+  const [isPlaying, setIsPlaying] = useState(false)
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const zoneRefs = useRef<Map<string, DOMRect>>(new Map())
   const playerRef = useRef<any>(null)
@@ -167,6 +169,7 @@ export function GameClient({ accessToken }: GameClientProps) {
     setCurrentQuestion(question)
     setAnsweredCorrectly(false)
     setBuzzedTeam(null)
+    setShowAnswerPrompt(false)
     setDisqualifiedTeams(new Set())
 
     // Play full song using Spotify Web Playback SDK
@@ -198,6 +201,7 @@ export function GameClient({ accessToken }: GameClientProps) {
 
       if (response.ok || response.status === 204) {
         console.log('🎵 Now playing full song!')
+        setIsPlaying(true)
       } else {
         const error = await response.json()
         console.error('❌ Playback error details:')
@@ -261,14 +265,24 @@ export function GameClient({ accessToken }: GameClientProps) {
         }, 1500)
       } else {
         // Disqualify the team from trying again
-        setDisqualifiedTeams(prev => new Set([...prev, droppedOnTeamId]))
+        const newDisqualified = new Set([...disqualifiedTeams, droppedOnTeamId])
+        setDisqualifiedTeams(newDisqualified)
         console.log(`Wrong answer! ${team?.name} is now disqualified from this question.`)
+
+        // Check if all teams are now disqualified
+        if (newDisqualified.size === teams.length) {
+          console.log('All teams disqualified - advancing to next question')
+          setTimeout(() => {
+            handleNextQuestion()
+          }, 2000)
+        }
       }
     }
   }
 
   const handleNextQuestion = async () => {
     setQuestionIndex((prev) => prev + 1)
+    setIsPlaying(false)
 
     // Stop current audio
     if (playerRef.current) {
@@ -311,6 +325,22 @@ export function GameClient({ accessToken }: GameClientProps) {
     router.push('/setup')
   }
 
+  const handleHasAnswered = (answered: boolean) => {
+    if (!answered) {
+      // Team didn't answer - clear buzzer and let other teams try
+      setBuzzedTeam(null)
+      setShowAnswerPrompt(false)
+      // Restart music
+      if (currentQuestion && playerReady) {
+        playTrack(currentQuestion.track.uri)
+      }
+      return
+    }
+
+    // Team has answered - show the judgment prompt
+    setShowAnswerPrompt(true)
+  }
+
   const handleBuzzCorrect = () => {
     if (!buzzedTeam) return
 
@@ -321,6 +351,7 @@ export function GameClient({ accessToken }: GameClientProps) {
 
     // Clear buzzer and advance
     setBuzzedTeam(null)
+    setShowAnswerPrompt(false)
     setAnsweredCorrectly(true)
     setTimeout(() => {
       handleNextQuestion()
@@ -334,6 +365,7 @@ export function GameClient({ accessToken }: GameClientProps) {
 
     // Clear buzzer and advance
     setBuzzedTeam(null)
+    setShowAnswerPrompt(false)
     setTimeout(() => {
       handleNextQuestion()
     }, 1500)
@@ -354,7 +386,13 @@ export function GameClient({ accessToken }: GameClientProps) {
       // For buzz-in, first team to touch gets to answer
       if (!buzzedTeam) {
         setBuzzedTeam(team.id)
-        console.log(`${team.name} buzzed in! Waiting for host to judge...`)
+        setIsPlaying(false)
+        console.log(`${team.name} buzzed in! Stopping music...`)
+
+        // Stop the music
+        if (playerRef.current) {
+          playerRef.current.pause()
+        }
       }
     } else if (currentQuestion.type === 'drag-to-corner' && currentQuestion.options) {
       // Map zones to options (top-left, top-right, bottom-left, bottom-right)
@@ -405,6 +443,8 @@ export function GameClient({ accessToken }: GameClientProps) {
       {/* Touch zones */}
       <TouchZones
         zones={touchZones}
+        teams={teams}
+        disqualifiedTeams={disqualifiedTeams}
         onZoneTouch={handleZoneTouch}
         onZoneMount={(zoneId, rect) => {
           zoneRefs.current.set(zoneId, rect)
@@ -522,12 +562,16 @@ export function GameClient({ accessToken }: GameClientProps) {
               </TwofoldText>
 
               {/* Audio control */}
-              <div className="mb-4 flex justify-center">
+              <div className="mb-6 flex justify-center">
                 <button
                   onClick={handlePlayAudio}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full transition-colors"
+                  className={`${
+                    isPlaying
+                      ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
+                      : 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700'
+                  } text-white font-bold py-3 px-8 rounded-full transition-colors touch-manipulation text-lg`}
                 >
-                  🎵 Play Audio
+                  {isPlaying ? '🎵 Playing...' : '🎵 Play Audio'}
                 </button>
               </div>
 
@@ -537,24 +581,48 @@ export function GameClient({ accessToken }: GameClientProps) {
                 </TwofoldText>
               )}
 
-              {currentQuestion.type === 'buzz-in' && buzzedTeam && (
-                <div className="bg-gray-800 p-6 rounded-xl mb-6">
-                  <TwofoldText className="text-xl text-gray-300 mb-4">
+              {/* Stage 1: Has the team answered? */}
+              {currentQuestion.type === 'buzz-in' && buzzedTeam && !showAnswerPrompt && (
+                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto">
+                  <div className="text-2xl font-bold text-white mb-6 text-center">
+                    Has {teams.find(t => t.id === buzzedTeam)?.name} answered?
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => handleHasAnswered(true)}
+                      className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-6 rounded-full text-xl transition-colors touch-manipulation"
+                    >
+                      ✓ Yes
+                    </button>
+                    <button
+                      onClick={() => handleHasAnswered(false)}
+                      className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-xl transition-colors touch-manipulation"
+                    >
+                      ✗ No
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Stage 2: Was the answer correct? */}
+              {currentQuestion.type === 'buzz-in' && buzzedTeam && showAnswerPrompt && (
+                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto">
+                  <div className="text-xl text-gray-300 mb-4 text-center">
                     Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
-                  </TwofoldText>
-                  <TwofoldText className="text-2xl font-bold text-white mb-6">
+                  </div>
+                  <div className="text-2xl font-bold text-white mb-6 text-center">
                     Did {teams.find(t => t.id === buzzedTeam)?.name} get the question right?
-                  </TwofoldText>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <button
                       onClick={handleBuzzCorrect}
-                      className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors"
+                      className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-6 rounded-full text-xl transition-colors touch-manipulation"
                     >
                       ✓ Yes
                     </button>
                     <button
                       onClick={handleBuzzIncorrect}
-                      className="bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors"
+                      className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-xl transition-colors touch-manipulation"
                     >
                       ✗ No
                     </button>

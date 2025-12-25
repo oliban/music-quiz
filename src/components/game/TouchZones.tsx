@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import type { TouchZone } from '@/src/store/gameStore'
+import type { TouchZone, Team } from '@/src/store/gameStore'
 
 interface TouchZonesProps {
   zones: TouchZone[]
+  teams: Team[]
+  disqualifiedTeams: Set<string>
   onZoneTouch: (zoneId: string) => void
   onZoneMount?: (zoneId: string, rect: DOMRect) => void
 }
@@ -20,7 +22,7 @@ const ZONE_STYLES: Record<TouchZone['position'], string> = {
   'right-middle': 'top-1/2 right-0 -translate-y-1/2',
 }
 
-export function TouchZones({ zones, onZoneTouch, onZoneMount }: TouchZonesProps) {
+export function TouchZones({ zones, teams, disqualifiedTeams, onZoneTouch, onZoneMount }: TouchZonesProps) {
   const zoneElementRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
   useEffect(() => {
@@ -49,22 +51,32 @@ export function TouchZones({ zones, onZoneTouch, onZoneMount }: TouchZonesProps)
 
   return (
     <>
-      {zones.map((zone) => (
-        <button
-          key={zone.id}
-          ref={(el) => {
-            if (el) {
-              zoneElementRefs.current.set(zone.id, el)
-            }
-          }}
-          onTouchStart={() => handleTouchStart(zone.id)}
-          onClick={() => handleTouchStart(zone.id)}
-          className={`absolute w-32 h-32 rounded-lg border-4 border-white/20 transition-all active:scale-95 ${ZONE_STYLES[zone.position]}`}
-          style={{ backgroundColor: zone.color }}
-        >
-          <span className="sr-only">Team Zone {zone.teamId}</span>
-        </button>
-      ))}
+      {zones.map((zone) => {
+        const isDisqualified = disqualifiedTeams.has(zone.teamId)
+        return (
+          <button
+            key={zone.id}
+            ref={(el) => {
+              if (el) {
+                zoneElementRefs.current.set(zone.id, el)
+              }
+            }}
+            onTouchStart={() => handleTouchStart(zone.id)}
+            onClick={() => handleTouchStart(zone.id)}
+            className={`absolute w-32 h-32 rounded-lg border-4 transition-all active:scale-95 ${ZONE_STYLES[zone.position]} ${
+              isDisqualified ? 'border-red-500 opacity-50' : 'border-white/20'
+            }`}
+            style={{ backgroundColor: zone.color }}
+          >
+            {isDisqualified && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-red-500 text-6xl font-bold">✗</div>
+              </div>
+            )}
+            <span className="sr-only">Team Zone {zone.teamId}</span>
+          </button>
+        )
+      })}
     </>
   )
 }
