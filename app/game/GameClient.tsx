@@ -9,6 +9,9 @@ import { TwofoldText } from '@/src/components/game/TwofoldText'
 import { TouchZones } from '@/src/components/game/TouchZones'
 import { DraggableAnswer } from '@/src/components/game/DraggableAnswer'
 import { ScoreBoard } from '@/src/components/game/ScoreBoard'
+import { DualZoneLayout } from '@/src/components/game/DualZoneLayout'
+import { TeamZoneContent } from '@/src/components/game/TeamZoneContent'
+import { AlbumArtDisplay } from '@/src/components/game/AlbumArtDisplay'
 import { QuestionGenerator } from '@/src/lib/game/questionGenerator'
 import { SpotifyClient } from '@/src/lib/spotify/api'
 import type { SpotifyTrack } from '@/src/lib/spotify/types'
@@ -40,6 +43,7 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [playedTrackIndices, setPlayedTrackIndices] = useState<Set<number>>(new Set())
   const [celebratingTeam, setCelebratingTeam] = useState<string | null>(null)
   const [showNoAnswerDialog, setShowNoAnswerDialog] = useState(false)
+  const [showAlbumArt, setShowAlbumArt] = useState(false)
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const zoneRefs = useRef<Map<string, DOMRect>>(new Map())
   const playerRef = useRef<any>(null)
@@ -155,7 +159,8 @@ export function GameClient({ accessToken }: GameClientProps) {
 
         // Initialize question generator
         questionGeneratorRef.current = new QuestionGenerator({
-          tracks: playlistTracks
+          tracks: playlistTracks,
+          lastFmApiKey: process.env.NEXT_PUBLIC_LASTFM_API_KEY
         })
       } catch (error) {
         console.error('Failed to load tracks:', error)
@@ -224,11 +229,12 @@ export function GameClient({ accessToken }: GameClientProps) {
     setBuzzedTeam(null)
     setShowAnswerPrompt(false)
     setShowNoAnswerDialog(false)
+    setShowAlbumArt(false)
     setDisqualifiedTeams(new Set())
     hasAnswerRef.current = false
 
     // Play full song using Spotify Web Playback SDK
-    if (playerReady && deviceIdRef.current) {
+    if (playerReady && deviceIdRef.current && track.uri) {
       await playTrack(track.uri)
     } else {
       console.warn('⚠️ Spotify Player not ready yet. Click "Play Audio" when ready.')
@@ -282,10 +288,10 @@ export function GameClient({ accessToken }: GameClientProps) {
     }
   }
 
-  const handleAnswerDrag = (answer: string, x: number, y: number) => {
+  const handleAnswerDrag = (answer: string, x: number, y: number, draggingTeamId: string) => {
     if (!currentQuestion || currentQuestion.type !== 'drag-to-corner' || answeredCorrectly) return
 
-    // Check which zone the answer was dropped on
+    // Check ALL zones to see where the answer was dropped
     let droppedOnZone: string | null = null
     let droppedOnTeamId: string | null = null
 
@@ -316,6 +322,7 @@ export function GameClient({ accessToken }: GameClientProps) {
       if (isCorrect) {
         setAnsweredCorrectly(true)
         hasAnswerRef.current = true
+        setShowAlbumArt(true)
         useGameStore.getState().updateScore(droppedOnTeamId, 1)
         console.log(`${team?.name} earned 1 point!`)
         celebrate(droppedOnTeamId)
@@ -323,7 +330,7 @@ export function GameClient({ accessToken }: GameClientProps) {
         // Advance to next question after a delay
         setTimeout(() => {
           handleNextQuestion()
-        }, 3000) // Longer delay to enjoy celebration
+        }, 4000) // 4 seconds to see album art
       } else {
         // Disqualify the team from trying again
         const newDisqualified = new Set([...disqualifiedTeams, droppedOnTeamId])
@@ -332,10 +339,11 @@ export function GameClient({ accessToken }: GameClientProps) {
 
         // Check if all teams are now disqualified
         if (newDisqualified.size === teams.length) {
-          console.log('All teams disqualified - advancing to next question')
+          console.log('All teams disqualified - showing album art and advancing')
+          setShowAlbumArt(true)
           setTimeout(() => {
             handleNextQuestion()
-          }, 2000)
+          }, 4000) // 4 seconds to see album art
         }
       }
     }
@@ -357,7 +365,7 @@ export function GameClient({ accessToken }: GameClientProps) {
   }
 
   const handlePlayAudio = async () => {
-    if (currentQuestion && playerReady) {
+    if (currentQuestion && playerReady && currentQuestion.track.uri) {
       await playTrack(currentQuestion.track.uri)
     }
   }
@@ -453,7 +461,7 @@ export function GameClient({ accessToken }: GameClientProps) {
       setBuzzedTeam(null)
       setShowAnswerPrompt(false)
       // Restart music
-      if (currentQuestion && playerReady) {
+      if (currentQuestion && playerReady && currentQuestion.track.uri) {
         playTrack(currentQuestion.track.uri)
       }
       return
@@ -468,6 +476,7 @@ export function GameClient({ accessToken }: GameClientProps) {
 
     // Award points and celebrate!
     hasAnswerRef.current = true
+    setShowAlbumArt(true)
     useGameStore.getState().updateScore(buzzedTeam, 1)
     const team = teams.find(t => t.id === buzzedTeam)
     console.log(`${team?.name} earned 1 point!`)
@@ -479,12 +488,13 @@ export function GameClient({ accessToken }: GameClientProps) {
     setAnsweredCorrectly(true)
     setTimeout(() => {
       handleNextQuestion()
-    }, 3000) // Longer delay to enjoy celebration
+    }, 4000) // 4 seconds to see album art
   }
 
   const handleBuzzIncorrect = () => {
     // No points awarded
     hasAnswerRef.current = true
+    setShowAlbumArt(true)
     const team = teams.find(t => t.id === buzzedTeam)
     console.log(`${team?.name} got it wrong - no points awarded`)
 
@@ -493,7 +503,7 @@ export function GameClient({ accessToken }: GameClientProps) {
     setShowAnswerPrompt(false)
     setTimeout(() => {
       handleNextQuestion()
-    }, 1500)
+    }, 4000) // 4 seconds to see album art
   }
 
   const handleNoAnswerContinue = () => {
@@ -558,32 +568,33 @@ export function GameClient({ accessToken }: GameClientProps) {
       {/* Scoreboards on opposite sides (not blocking corners) */}
       {gameStarted && (
         <>
-          {/* Top scoreboard (offset from left edge to avoid corner) */}
-          <div className="absolute top-4 left-40 z-40">
-            <ScoreBoard teams={teams} />
-          </div>
-          {/* Bottom scoreboard (offset from right edge to avoid corner, rotated) */}
-          <div className="absolute bottom-4 right-40 z-40">
+          {/* Top scoreboard (offset from right edge to avoid corner, rotated) */}
+          <div className="absolute top-4 right-40 z-40">
             <ScoreBoard teams={teams} rotated />
+          </div>
+          {/* Bottom scoreboard (offset from left edge to avoid corner) */}
+          <div className="absolute bottom-4 left-40 z-40">
+            <ScoreBoard teams={teams} />
           </div>
         </>
       )}
 
-      {/* Center content - readable from both sides */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="max-w-2xl w-full p-8">
-          <TwofoldText className="text-3xl font-bold text-white mb-8">
-            {playlist.name}
-          </TwofoldText>
-
-          {loading && (
+      {/* Main content with dual-zone layout */}
+      <div className="absolute inset-0 pointer-events-none">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
             <TwofoldText className="text-white text-xl">
               Loading tracks...
             </TwofoldText>
-          )}
+          </div>
+        )}
 
-          {!loading && !gameStarted && !gameCompleted && tracks.length > 0 && (
-            <div className="pointer-events-auto">
+        {!loading && !gameStarted && !gameCompleted && tracks.length > 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
+            <div className="max-w-2xl w-full p-8">
+              <TwofoldText className="text-3xl font-bold text-white mb-8">
+                {playlist.name}
+              </TwofoldText>
               <div className="mb-6 bg-gray-800 p-4 rounded-xl">
                 <div className="text-white text-lg mb-3 text-center">Play Order</div>
                 <div className="flex gap-3">
@@ -619,10 +630,12 @@ export function GameClient({ accessToken }: GameClientProps) {
                 {tracks.length} tracks loaded
               </TwofoldText>
             </div>
-          )}
+          </div>
+        )}
 
-          {gameCompleted && (
-            <div className="pointer-events-auto">
+        {gameCompleted && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
+            <div className="max-w-2xl w-full p-8">
               <TwofoldText className="text-4xl font-bold text-yellow-400 mb-8">
                 Game Over!
               </TwofoldText>
@@ -677,112 +690,118 @@ export function GameClient({ accessToken }: GameClientProps) {
                 </button>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {gameStarted && currentQuestion && (
-            <div className="pointer-events-auto">
-              <TwofoldText className="text-2xl text-yellow-400 font-bold mb-6">
-                {currentQuestion.question}
-              </TwofoldText>
-
-              {/* Audio control */}
-              <div className="mb-6 flex justify-center">
-                <button
-                  onClick={handlePlayAudio}
-                  className={`${
-                    isPlaying
-                      ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
-                      : 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700'
-                  } text-white font-bold py-3 px-8 rounded-full transition-colors touch-manipulation text-lg`}
-                >
-                  {isPlaying ? '🎵 Playing...' : '🎵 Play Audio'}
-                </button>
-              </div>
-
-              {currentQuestion.type === 'buzz-in' && !buzzedTeam && (
-                <TwofoldText className="text-white text-xl mb-4">
-                  Touch your team zone to buzz in!
-                </TwofoldText>
-              )}
-
-              {/* Stage 1: Has the team answered? */}
-              {currentQuestion.type === 'buzz-in' && buzzedTeam && !showAnswerPrompt && (
-                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto shadow-2xl border-2 border-white/20 relative z-50">
-                  <div className="text-2xl font-bold text-white mb-6 text-center">
-                    Has {teams.find(t => t.id === buzzedTeam)?.name} answered?
-                  </div>
+        {gameStarted && currentQuestion && (
+          <DualZoneLayout
+            upperContent={
+              <TeamZoneContent
+                teams={[teams[0], ...(teams[2] ? [teams[2]] : [])]}
+                currentQuestion={currentQuestion}
+                answeredCorrectly={answeredCorrectly}
+                onAnswerDrag={handleAnswerDrag}
+                playedCount={playedTrackIndices.size}
+                totalTracks={tracks.length}
+                buzzedTeam={buzzedTeam}
+                isRotated={true}
+              />
+            }
+            centerContent={
+              <>
+                {/* Play button - positioned to the left */}
+                <div className="absolute left-8 top-1/2 -translate-y-1/2">
                   <button
-                    onClick={() => handleHasAnswered(true)}
-                    className="w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors touch-manipulation"
+                    onClick={handlePlayAudio}
+                    className={`${
+                      isPlaying
+                        ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
+                        : 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700'
+                    } text-white font-bold py-3 px-6 rounded-full transition-colors touch-manipulation shadow-lg`}
                   >
-                    ✓ Yes
+                    {isPlaying ? '🎵 Playing...' : '🎵 Play'}
                   </button>
                 </div>
-              )}
 
-              {/* Stage 2: Was the answer correct? */}
-              {currentQuestion.type === 'buzz-in' && buzzedTeam && showAnswerPrompt && (
-                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto shadow-2xl border-2 border-white/20 relative z-50">
-                  <div className="text-xl text-gray-300 mb-4 text-center">
-                    Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
-                  </div>
-                  <div className="text-2xl font-bold text-white mb-6 text-center">
-                    Did {teams.find(t => t.id === buzzedTeam)?.name} get the question right?
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+                {/* Album art when answer is revealed */}
+                {showAlbumArt && currentQuestion && (
+                  <AlbumArtDisplay track={currentQuestion.track} />
+                )}
+
+                {/* Dialogs - visible from both sides */}
+                {/* Stage 1: Has the team answered? */}
+                {currentQuestion.type === 'buzz-in' && buzzedTeam && !showAnswerPrompt && (
+                  <div className="bg-gray-800/95 p-6 rounded-xl max-w-md mx-auto shadow-2xl border-2 border-white/30 backdrop-blur-sm">
+                    <div className="text-2xl font-bold text-white mb-6 text-center">
+                      Has {teams.find(t => t.id === buzzedTeam)?.name} answered?
+                    </div>
                     <button
-                      onClick={handleBuzzCorrect}
-                      className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-6 rounded-full text-xl transition-colors touch-manipulation"
+                      onClick={() => handleHasAnswered(true)}
+                      className="w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors touch-manipulation"
                     >
                       ✓ Yes
                     </button>
+                  </div>
+                )}
+
+                {/* Stage 2: Was the answer correct? */}
+                {currentQuestion.type === 'buzz-in' && buzzedTeam && showAnswerPrompt && (
+                  <div className="bg-gray-800/95 p-6 rounded-xl max-w-md mx-auto shadow-2xl border-2 border-white/30 backdrop-blur-sm">
+                    <div className="text-xl text-gray-300 mb-4 text-center">
+                      Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
+                    </div>
+                    <div className="text-2xl font-bold text-white mb-6 text-center">
+                      Did {teams.find(t => t.id === buzzedTeam)?.name} get the question right?
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        onClick={handleBuzzCorrect}
+                        className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-6 rounded-full text-xl transition-colors touch-manipulation"
+                      >
+                        ✓ Yes
+                      </button>
+                      <button
+                        onClick={handleBuzzIncorrect}
+                        className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-xl transition-colors touch-manipulation"
+                      >
+                        ✗ No
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* No answer dialog */}
+                {showNoAnswerDialog && (
+                  <div className="bg-gray-800/95 p-6 rounded-xl max-w-md mx-auto shadow-2xl border-2 border-white/30 backdrop-blur-sm">
+                    <div className="text-xl text-gray-300 mb-4 text-center">
+                      Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
+                    </div>
+                    <div className="text-2xl font-bold text-white mb-6 text-center">
+                      Time's up! No one answered.
+                    </div>
                     <button
-                      onClick={handleBuzzIncorrect}
-                      className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-xl transition-colors touch-manipulation"
+                      onClick={handleNoAnswerContinue}
+                      className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors touch-manipulation"
                     >
-                      ✗ No
+                      Continue
                     </button>
                   </div>
-                </div>
-              )}
-
-              {/* No answer dialog - shown when song ends without anyone answering */}
-              {showNoAnswerDialog && (
-                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto shadow-2xl border-2 border-white/20 relative z-50">
-                  <div className="text-xl text-gray-300 mb-4 text-center">
-                    Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
-                  </div>
-                  <div className="text-2xl font-bold text-white mb-6 text-center">
-                    Time's up! No one answered.
-                  </div>
-                  <button
-                    onClick={handleNoAnswerContinue}
-                    className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors touch-manipulation"
-                  >
-                    Continue
-                  </button>
-                </div>
-              )}
-
-              {currentQuestion.type === 'drag-to-corner' && currentQuestion.options && (
-                <div className="grid grid-cols-2 gap-4 mb-6 pointer-events-auto">
-                  {currentQuestion.options.map((option, index) => (
-                    <DraggableAnswer
-                      key={index}
-                      answer={option}
-                      onDragEnd={handleAnswerDrag}
-                      isAnswered={answeredCorrectly}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <TwofoldText className="text-gray-400 text-sm">
-                Question {playedTrackIndices.size} of {tracks.length}
-              </TwofoldText>
-            </div>
-          )}
-        </div>
+                )}
+              </>
+            }
+            lowerContent={
+              <TeamZoneContent
+                teams={[teams[1] || teams[0], ...(teams[3] ? [teams[3]] : [])]}
+                currentQuestion={currentQuestion}
+                answeredCorrectly={answeredCorrectly}
+                onAnswerDrag={handleAnswerDrag}
+                playedCount={playedTrackIndices.size}
+                totalTracks={tracks.length}
+                buzzedTeam={buzzedTeam}
+              />
+            }
+          />
+        )}
       </div>
     </div>
   )

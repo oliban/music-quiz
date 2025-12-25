@@ -51,7 +51,11 @@ export class QuestionGenerator {
   }
 
   private async generateDragToCornerQuestion(track: SpotifyTrack): Promise<GameQuestion> {
-    const questionTypes = [
+    const questionTypes: Array<{
+      question: string
+      correctAnswer: string
+      generateWrongAnswers: () => Promise<string[]> | string[]
+    }> = [
       {
         question: 'Which is the correct song title?',
         correctAnswer: track.name,
@@ -64,8 +68,60 @@ export class QuestionGenerator {
       },
     ]
 
+    // Add trivia questions if Last.fm is available
+    if (this.lastFmClient) {
+      // Genre/Tag question
+      const tags = await this.lastFmClient.getTopTags(
+        track.artists[0]?.name || '',
+        track.name
+      )
+
+      if (tags.length > 0) {
+        const correctTag = tags[0]
+        questionTypes.push({
+          question: 'What genre/style is this song?',
+          correctAnswer: correctTag,
+          generateWrongAnswers: async () => {
+            // Get tags from other random tracks
+            const otherTags: string[] = []
+            const randomTracks = this.getRandomItems(
+              this.tracks.filter(t => t.id !== track.id),
+              3
+            )
+
+            for (const t of randomTracks) {
+              const trackTags = await this.lastFmClient!.getTopTags(
+                t.artists[0]?.name || '',
+                t.name
+              )
+              if (trackTags.length > 0) {
+                otherTags.push(trackTags[0])
+              }
+            }
+
+            return [...new Set(otherTags)].slice(0, 3)
+          },
+        })
+      }
+
+      // Similar artist question
+      const artist = track.artists[0]?.name
+      if (artist) {
+        const similarArtists = await this.lastFmClient.searchSimilarArtists(artist, 4)
+
+        if (similarArtists.length >= 3) {
+          const correctArtist = similarArtists[0]
+          questionTypes.push({
+            question: `Which artist is similar to ${artist}?`,
+            correctAnswer: correctArtist,
+            generateWrongAnswers: () => this.getRandomArtists(3, artist),
+          })
+        }
+      }
+    }
+
     const selected = questionTypes[Math.floor(Math.random() * questionTypes.length)]
-    const wrongAnswers = selected.generateWrongAnswers()
+    const wrongAnswers = await selected.generateWrongAnswers()
 
     // Ensure we have at least 3 wrong answers by padding with generic options if needed
     while (wrongAnswers.length < 3) {

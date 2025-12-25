@@ -9,6 +9,19 @@ export interface LastFmTrackInfo {
   tags?: Array<{ name: string }>
 }
 
+export interface LastFmArtistInfo {
+  name: string
+  tags?: Array<{ name: string }>
+  bio?: {
+    summary: string
+    content: string
+  }
+  stats?: {
+    listeners: string
+    playcount: string
+  }
+}
+
 export class LastFmClient {
   private apiKey: string
   private baseUrl = 'https://ws.audioscrobbler.com/2.0/'
@@ -70,6 +83,65 @@ export class LastFmClient {
       return (data.similarartists?.artist || []).map((a: any) => a.name)
     } catch (error) {
       console.error('Failed to fetch similar artists from Last.fm:', error)
+      return []
+    }
+  }
+
+  async getArtistInfo(artist: string): Promise<LastFmArtistInfo | null> {
+    try {
+      const params = new URLSearchParams({
+        method: 'artist.getInfo',
+        api_key: this.apiKey,
+        artist,
+        format: 'json',
+        autocorrect: '1',
+      })
+
+      const response = await fetch(`${this.baseUrl}?${params}`)
+      const data = await response.json()
+
+      if (data.error) {
+        console.error('Last.fm API error:', data.message)
+        return null
+      }
+
+      return {
+        name: data.artist?.name || artist,
+        tags: data.artist?.tags?.tag || [],
+        bio: data.artist?.bio,
+        stats: data.artist?.stats,
+      }
+    } catch (error) {
+      console.error('Failed to fetch artist info from Last.fm:', error)
+      return null
+    }
+  }
+
+  async getTopTags(artist: string, track: string): Promise<string[]> {
+    try {
+      const params = new URLSearchParams({
+        method: 'track.getTopTags',
+        api_key: this.apiKey,
+        artist,
+        track,
+        format: 'json',
+        autocorrect: '1',
+      })
+
+      const response = await fetch(`${this.baseUrl}?${params}`)
+      const data = await response.json()
+
+      if (data.error || !data.toptags?.tag) {
+        return []
+      }
+
+      // Return top 5 tags
+      return data.toptags.tag
+        .slice(0, 5)
+        .map((t: any) => t.name)
+        .filter((name: string) => name && name.length > 0)
+    } catch (error) {
+      console.error('Failed to fetch top tags from Last.fm:', error)
       return []
     }
   }

@@ -68,7 +68,7 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
             }}
             onTouchStart={() => handleTouchStart(zone.id)}
             onClick={() => handleTouchStart(zone.id)}
-            className={`absolute w-32 h-32 rounded-lg border-4 transition-all active:scale-95 ${ZONE_STYLES[zone.position]} ${
+            className={`absolute w-32 h-32 rounded-lg border-4 transition-all active:scale-95 z-[100] ${ZONE_STYLES[zone.position]} ${
               isDisqualified
                 ? 'border-red-500 opacity-50'
                 : isCelebrating

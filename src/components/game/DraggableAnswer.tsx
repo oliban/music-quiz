@@ -6,9 +6,10 @@ interface DraggableAnswerProps {
   answer: string
   onDragEnd: (answer: string, x: number, y: number) => void
   isAnswered: boolean
+  teamId?: string
 }
 
-export function DraggableAnswer({ answer, onDragEnd, isAnswered }: DraggableAnswerProps) {
+export function DraggableAnswer({ answer, onDragEnd, isAnswered, teamId }: DraggableAnswerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -124,6 +125,7 @@ export function DraggableAnswer({ answer, onDragEnd, isAnswered }: DraggableAnsw
         transform: `translate(${position.x}px, ${position.y}px)`,
         touchAction: 'none',
       }}
+      data-team-id={teamId}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
