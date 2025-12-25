@@ -1,0 +1,587 @@
+'use client'
+
+import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
+import { useGameStore } from '@/src/store/gameStore'
+import { TwofoldText } from '@/src/components/game/TwofoldText'
+import { TouchZones } from '@/src/components/game/TouchZones'
+import { DraggableAnswer } from '@/src/components/game/DraggableAnswer'
+import { QuestionGenerator } from '@/src/lib/game/questionGenerator'
+import { SpotifyClient } from '@/src/lib/spotify/api'
+import type { SpotifyTrack } from '@/src/lib/spotify/types'
+import type { GameQuestion } from '@/src/store/gameStore'
+
+interface GameClientProps {
+  accessToken: string
+}
+
+export function GameClient({ accessToken }: GameClientProps) {
+  const router = useRouter()
+  const playlist = useGameStore((state) => state.playlist)
+  const teams = useGameStore((state) => state.teams)
+  const touchZones = useGameStore((state) => state.touchZones)
+  const [audioLoaded, setAudioLoaded] = useState(false)
+  const [tracks, setTracks] = useState<SpotifyTrack[]>([])
+  const [currentQuestion, setCurrentQuestion] = useState<GameQuestion | null>(null)
+  const [gameStarted, setGameStarted] = useState(false)
+  const [questionIndex, setQuestionIndex] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [answeredCorrectly, setAnsweredCorrectly] = useState(false)
+  const [playerReady, setPlayerReady] = useState(false)
+  const [gameCompleted, setGameCompleted] = useState(false)
+  const [buzzedTeam, setBuzzedTeam] = useState<string | null>(null)
+  const [disqualifiedTeams, setDisqualifiedTeams] = useState<Set<string>>(new Set())
+  const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
+  const zoneRefs = useRef<Map<string, DOMRect>>(new Map())
+  const playerRef = useRef<any>(null)
+  const deviceIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!playlist || teams.length === 0) {
+      router.push('/setup')
+    }
+  }, [playlist, teams, router])
+
+  // Initialize Spotify Web Playback SDK
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    // Load SDK dynamically
+    const loadSpotifySDK = () => {
+      if (document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
+        // Already loaded
+        return
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://sdk.scdn.co/spotify-player.js'
+      script.async = true
+      document.body.appendChild(script)
+    }
+
+    const initializePlayer = () => {
+      if (!window.Spotify) {
+        console.warn('⚠️ Spotify SDK not loaded yet')
+        return
+      }
+
+      const player = new window.Spotify.Player({
+        name: 'Music Quiz Game',
+        getOAuthToken: (cb: (token: string) => void) => {
+          cb(accessToken)
+        },
+        volume: 0.8
+      })
+
+      // Player ready
+      player.addListener('ready', ({ device_id }: { device_id: string }) => {
+        console.log('✅ Spotify Player Ready! Device ID:', device_id)
+        deviceIdRef.current = device_id
+        setPlayerReady(true)
+      })
+
+      // Player errors
+      player.addListener('initialization_error', ({ message }: { message: string }) => {
+        console.error('❌ Initialization Error:', message)
+      })
+
+      player.addListener('authentication_error', ({ message }: { message: string }) => {
+        console.error('❌ Authentication Error:', message)
+      })
+
+      player.addListener('account_error', ({ message }: { message: string }) => {
+        console.error('❌ Account Error: This requires Spotify Premium', message)
+      })
+
+      player.connect()
+      playerRef.current = player
+    }
+
+    // Load the SDK
+    loadSpotifySDK()
+
+    // Check if SDK is already loaded
+    if (window.Spotify) {
+      initializePlayer()
+    } else {
+      // Set up callback for when SDK loads
+      window.onSpotifyWebPlaybackSDKReady = initializePlayer
+    }
+
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.disconnect()
+      }
+    }
+  }, [accessToken])
+
+  // Load tracks when component mounts
+  useEffect(() => {
+    async function loadTracks() {
+      if (!playlist) return
+
+      setLoading(true)
+      try {
+        const client = new SpotifyClient(accessToken)
+        const playlistTracks = await client.getPlaylistTracks(playlist.id)
+        setTracks(playlistTracks)
+
+        // Initialize question generator
+        questionGeneratorRef.current = new QuestionGenerator({
+          tracks: playlistTracks
+        })
+      } catch (error) {
+        console.error('Failed to load tracks:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadTracks()
+  }, [playlist, accessToken])
+
+  const handleStartGame = async () => {
+    if (!questionGeneratorRef.current || tracks.length === 0) return
+
+    setGameStarted(true)
+    await generateNextQuestion()
+  }
+
+  const generateNextQuestion = async () => {
+    if (!questionGeneratorRef.current || questionIndex >= tracks.length) {
+      // Game over
+      setCurrentQuestion(null)
+      setGameStarted(false)
+      setGameCompleted(true)
+
+      // Stop audio
+      if (playerRef.current) {
+        playerRef.current.pause()
+      }
+      return
+    }
+
+    const track = tracks[questionIndex]
+    const question = await questionGeneratorRef.current.generateQuestion(track, questionIndex)
+    setCurrentQuestion(question)
+    setAnsweredCorrectly(false)
+    setBuzzedTeam(null)
+    setDisqualifiedTeams(new Set())
+
+    // Play full song using Spotify Web Playback SDK
+    if (playerReady && deviceIdRef.current) {
+      await playTrack(track.uri)
+    } else {
+      console.warn('⚠️ Spotify Player not ready yet. Click "Play Audio" when ready.')
+    }
+  }
+
+  const playTrack = async (trackUri: string) => {
+    if (!deviceIdRef.current) {
+      console.error('No device ID available')
+      return
+    }
+
+    try {
+      // Use Spotify Web API to start playback on our device
+      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uris: [trackUri]
+        })
+      })
+
+      if (response.ok || response.status === 204) {
+        console.log('🎵 Now playing full song!')
+      } else {
+        const error = await response.json()
+        console.error('❌ Playback error details:')
+        console.error('  Status:', response.status)
+        console.error('  Error object:', JSON.stringify(error, null, 2))
+        console.error('  Error message:', error?.error?.message || 'No message')
+        console.error('  Error reason:', error?.error?.reason || 'No reason')
+
+        if (response.status === 403) {
+          console.error('⚠️ 403 Forbidden - Possible causes:')
+          console.error('  1. Token scopes missing (should have: streaming, user-modify-playback-state)')
+          console.error('  2. Device not properly activated')
+          console.error('  3. Account restrictions (region, family plan, etc.)')
+          console.error('  4. Try: Revoke access at spotify.com/account/apps, then log back in')
+        }
+      }
+    } catch (error) {
+      console.error('Failed to start playback:', error)
+    }
+  }
+
+  const handleAnswerDrag = (answer: string, x: number, y: number) => {
+    if (!currentQuestion || currentQuestion.type !== 'drag-to-corner' || answeredCorrectly) return
+
+    // Check which zone the answer was dropped on
+    let droppedOnZone: string | null = null
+    let droppedOnTeamId: string | null = null
+
+    for (const zone of touchZones) {
+      const rect = zoneRefs.current.get(zone.id)
+      if (rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        droppedOnZone = zone.id
+        droppedOnTeamId = zone.teamId
+        break
+      }
+    }
+
+    if (droppedOnTeamId) {
+      const team = teams.find(t => t.id === droppedOnTeamId)
+
+      // Check if team is disqualified
+      if (disqualifiedTeams.has(droppedOnTeamId)) {
+        console.log(`${team?.name} is disqualified - cannot answer this question`)
+        return
+      }
+
+      const isCorrect = answer === currentQuestion.correctAnswer
+
+      console.log(`Answer "${answer}" dropped on ${team?.name}'s corner`)
+      console.log(`Correct answer: ${currentQuestion.correctAnswer}`)
+      console.log(`Is correct: ${isCorrect}`)
+
+      if (isCorrect) {
+        setAnsweredCorrectly(true)
+        useGameStore.getState().updateScore(droppedOnTeamId, 100)
+        console.log(`${team?.name} earned 100 points!`)
+
+        // Advance to next question after a delay
+        setTimeout(() => {
+          handleNextQuestion()
+        }, 1500)
+      } else {
+        // Disqualify the team from trying again
+        setDisqualifiedTeams(prev => new Set([...prev, droppedOnTeamId]))
+        console.log(`Wrong answer! ${team?.name} is now disqualified from this question.`)
+      }
+    }
+  }
+
+  const handleNextQuestion = async () => {
+    setQuestionIndex((prev) => prev + 1)
+
+    // Stop current audio
+    if (playerRef.current) {
+      playerRef.current.pause()
+    }
+
+    // Wait a bit before showing next question
+    setTimeout(() => {
+      generateNextQuestion()
+    }, 500)
+  }
+
+  const handlePlayAudio = async () => {
+    if (currentQuestion && playerReady) {
+      await playTrack(currentQuestion.track.uri)
+    }
+  }
+
+  const handleStopAudio = () => {
+    if (playerRef.current) {
+      playerRef.current.pause()
+    }
+  }
+
+  const handleRematch = () => {
+    // Reset game state but keep teams and playlist
+    setQuestionIndex(0)
+    setGameStarted(false)
+    setGameCompleted(false)
+    setCurrentQuestion(null)
+    setAnsweredCorrectly(false)
+
+    // Reset all team scores to 0
+    teams.forEach(team => {
+      useGameStore.getState().updateScore(team.id, -team.score)
+    })
+  }
+
+  const handleNewGame = () => {
+    router.push('/setup')
+  }
+
+  const handleBuzzCorrect = () => {
+    if (!buzzedTeam) return
+
+    // Award points
+    useGameStore.getState().updateScore(buzzedTeam, 100)
+    const team = teams.find(t => t.id === buzzedTeam)
+    console.log(`${team?.name} earned 100 points!`)
+
+    // Clear buzzer and advance
+    setBuzzedTeam(null)
+    setAnsweredCorrectly(true)
+    setTimeout(() => {
+      handleNextQuestion()
+    }, 1500)
+  }
+
+  const handleBuzzIncorrect = () => {
+    // No points awarded
+    const team = teams.find(t => t.id === buzzedTeam)
+    console.log(`${team?.name} got it wrong - no points awarded`)
+
+    // Clear buzzer and advance
+    setBuzzedTeam(null)
+    setTimeout(() => {
+      handleNextQuestion()
+    }, 1500)
+  }
+
+  const handleZoneTouch = (zoneId: string) => {
+    if (!currentQuestion) return
+
+    const zone = touchZones.find((z) => z.id === zoneId)
+    if (!zone) return
+
+    const team = teams.find((t) => t.id === zone.teamId)
+    if (!team) return
+
+    console.log(`Team ${team.name} touched zone ${zoneId}`)
+
+    if (currentQuestion.type === 'buzz-in') {
+      // For buzz-in, first team to touch gets to answer
+      if (!buzzedTeam) {
+        setBuzzedTeam(team.id)
+        console.log(`${team.name} buzzed in! Waiting for host to judge...`)
+      }
+    } else if (currentQuestion.type === 'drag-to-corner' && currentQuestion.options) {
+      // Map zones to options (top-left, top-right, bottom-left, bottom-right)
+      const zoneToOptionIndex: Record<string, number> = {
+        'top-left': 0,
+        'top-right': 1,
+        'bottom-left': 2,
+        'bottom-right': 3,
+      }
+
+      const optionIndex = zoneToOptionIndex[zone.position]
+      if (optionIndex !== undefined) {
+        const selectedAnswer = currentQuestion.options[optionIndex]
+        const isCorrect = selectedAnswer === currentQuestion.correctAnswer
+
+        console.log(`Team ${team.name} selected: ${selectedAnswer}`)
+        console.log(`Correct answer: ${currentQuestion.correctAnswer}`)
+        console.log(`Is correct: ${isCorrect}`)
+
+        if (isCorrect) {
+          // Award points using Zustand store
+          useGameStore.getState().updateScore(team.id, 100)
+          console.log(`Team ${team.name} earned 100 points!`)
+        }
+
+        // Advance to next question after a brief delay
+        setTimeout(() => {
+          handleNextQuestion()
+        }, 1500)
+      }
+    }
+  }
+
+  if (!playlist || teams.length === 0) {
+    return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>
+  }
+
+  return (
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      {/* Logout button */}
+      <button
+        onClick={() => signOut({ callbackUrl: '/' })}
+        className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white transition-colors text-xs bg-black/50 px-3 py-1 rounded"
+      >
+        Log Out
+      </button>
+
+      {/* Touch zones */}
+      <TouchZones
+        zones={touchZones}
+        onZoneTouch={handleZoneTouch}
+        onZoneMount={(zoneId, rect) => {
+          zoneRefs.current.set(zoneId, rect)
+        }}
+      />
+
+      {/* Center content - readable from both sides */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="max-w-2xl w-full p-8">
+          <TwofoldText className="text-3xl font-bold text-white mb-4">
+            {playlist.name}
+          </TwofoldText>
+
+          <TwofoldText className="text-lg text-gray-400 mb-8">
+            {teams.length} teams playing
+          </TwofoldText>
+
+          {loading && (
+            <TwofoldText className="text-white text-xl">
+              Loading tracks...
+            </TwofoldText>
+          )}
+
+          {!loading && !gameStarted && !gameCompleted && tracks.length > 0 && (
+            <div className="pointer-events-auto">
+              <button
+                onClick={handleStartGame}
+                className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-12 rounded-full text-2xl transition-colors w-full"
+              >
+                Start Game
+              </button>
+              <TwofoldText className="text-gray-400 mt-4 text-sm">
+                {tracks.length} tracks loaded
+              </TwofoldText>
+            </div>
+          )}
+
+          {gameCompleted && (
+            <div className="pointer-events-auto">
+              <TwofoldText className="text-4xl font-bold text-yellow-400 mb-8">
+                Game Over!
+              </TwofoldText>
+
+              {/* Final Scores */}
+              <div className="mb-8">
+                <TwofoldText className="text-2xl font-bold text-white mb-4">
+                  Final Scores
+                </TwofoldText>
+                <div className="grid grid-cols-1 gap-4">
+                  {teams
+                    .sort((a, b) => b.score - a.score)
+                    .map((team, index) => (
+                      <TwofoldText
+                        key={team.id}
+                        className={`p-4 rounded-lg ${
+                          index === 0 ? 'bg-yellow-600' : 'bg-gray-800'
+                        }`}
+                      >
+                        <span className="text-2xl mr-3">
+                          {index === 0 ? '🏆' : `${index + 1}.`}
+                        </span>
+                        <span className="font-bold" style={{ color: team.color }}>
+                          {team.name}:
+                        </span>
+                        <span className="text-white ml-2 text-xl">{team.score} pts</span>
+                      </TwofoldText>
+                    ))}
+                </div>
+              </div>
+
+              {/* Winner Announcement */}
+              {teams.length > 0 && (
+                <TwofoldText className="text-3xl font-bold text-green-400 mb-8">
+                  {teams.sort((a, b) => b.score - a.score)[0].name} wins! 🎉
+                </TwofoldText>
+              )}
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={handleRematch}
+                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-lg transition-colors"
+                >
+                  Rematch
+                </button>
+                <button
+                  onClick={handleNewGame}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full text-lg transition-colors"
+                >
+                  New Game
+                </button>
+              </div>
+            </div>
+          )}
+
+          {gameStarted && currentQuestion && (
+            <div className="pointer-events-auto">
+              {/* Scoreboard */}
+              <div className="mb-6 grid grid-cols-2 gap-3">
+                {teams.map((team) => (
+                  <TwofoldText
+                    key={team.id}
+                    className="bg-gray-800 p-3 rounded-lg"
+                  >
+                    <span className="font-bold" style={{ color: team.color }}>
+                      {team.name}:
+                    </span>
+                    <span className="text-white ml-2">{team.score} pts</span>
+                  </TwofoldText>
+                ))}
+              </div>
+
+              <TwofoldText className="text-2xl text-yellow-400 font-bold mb-6">
+                {currentQuestion.question}
+              </TwofoldText>
+
+              {/* Audio control */}
+              <div className="mb-4 flex justify-center">
+                <button
+                  onClick={handlePlayAudio}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full transition-colors"
+                >
+                  🎵 Play Audio
+                </button>
+              </div>
+
+              {currentQuestion.type === 'buzz-in' && !buzzedTeam && (
+                <TwofoldText className="text-white text-xl mb-4">
+                  Touch your team zone to buzz in!
+                </TwofoldText>
+              )}
+
+              {currentQuestion.type === 'buzz-in' && buzzedTeam && (
+                <div className="bg-gray-800 p-6 rounded-xl mb-6">
+                  <TwofoldText className="text-xl text-gray-300 mb-4">
+                    Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
+                  </TwofoldText>
+                  <TwofoldText className="text-2xl font-bold text-white mb-6">
+                    Did {teams.find(t => t.id === buzzedTeam)?.name} get the question right?
+                  </TwofoldText>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={handleBuzzCorrect}
+                      className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors"
+                    >
+                      ✓ Yes
+                    </button>
+                    <button
+                      onClick={handleBuzzIncorrect}
+                      className="bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors"
+                    >
+                      ✗ No
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {currentQuestion.type === 'drag-to-corner' && currentQuestion.options && (
+                <div className="grid grid-cols-2 gap-4 mb-6 pointer-events-auto">
+                  {currentQuestion.options.map((option, index) => (
+                    <DraggableAnswer
+                      key={index}
+                      answer={option}
+                      onDragEnd={handleAnswerDrag}
+                      isAnswered={answeredCorrectly}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <TwofoldText className="text-gray-400 text-sm">
+                Question {questionIndex + 1} of {tracks.length}
+              </TwofoldText>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
