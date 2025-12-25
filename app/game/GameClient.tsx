@@ -293,8 +293,8 @@ export function GameClient({ accessToken }: GameClientProps) {
 
       if (isCorrect) {
         setAnsweredCorrectly(true)
-        useGameStore.getState().updateScore(droppedOnTeamId, 100)
-        console.log(`${team?.name} earned 100 points!`)
+        useGameStore.getState().updateScore(droppedOnTeamId, 1)
+        console.log(`${team?.name} earned 1 point!`)
         celebrate(droppedOnTeamId)
 
         // Advance to next question after a delay
@@ -368,6 +368,10 @@ export function GameClient({ accessToken }: GameClientProps) {
     const team = teams.find(t => t.id === teamId)
     if (!team) return
 
+    // Find the team's zone position
+    const zone = touchZones.find(z => z.teamId === teamId)
+    if (!zone) return
+
     // Set celebrating state for visual effects
     setCelebratingTeam(teamId)
     setTimeout(() => setCelebratingTeam(null), 3000)
@@ -378,31 +382,38 @@ export function GameClient({ accessToken }: GameClientProps) {
     const g = parseInt(hex.substr(2, 2), 16)
     const b = parseInt(hex.substr(4, 2), 16)
 
-    // Create confetti burst with team colors
+    // Create confetti burst with team colors (base color, lighter shade, and white)
     const colors = [
       `rgb(${r}, ${g}, ${b})`,
       `rgb(${Math.min(r + 40, 255)}, ${Math.min(g + 40, 255)}, ${Math.min(b + 40, 255)})`,
-      '#FFD700', // Gold
       '#FFFFFF', // White
     ]
 
-    // Multiple confetti bursts for more celebration
+    // Map zone position to confetti direction
+    const confettiConfig: Record<string, { origin: { x: number; y: number }; angle: number }> = {
+      'top-left': { origin: { x: 0, y: 0 }, angle: 315 },
+      'top-right': { origin: { x: 1, y: 0 }, angle: 225 },
+      'bottom-left': { origin: { x: 0, y: 1 }, angle: 45 },
+      'bottom-right': { origin: { x: 1, y: 1 }, angle: 135 },
+      'center-top': { origin: { x: 0.5, y: 0 }, angle: 270 },
+      'center-bottom': { origin: { x: 0.5, y: 1 }, angle: 90 },
+      'left-middle': { origin: { x: 0, y: 0.5 }, angle: 0 },
+      'right-middle': { origin: { x: 1, y: 0.5 }, angle: 180 },
+    }
+
+    const config = confettiConfig[zone.position]
+    if (!config) return
+
+    // Multiple confetti bursts for celebration
     const duration = 2000
     const end = Date.now() + duration
 
     const frame = () => {
       confetti({
-        particleCount: 3,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0, y: 0.6 },
-        colors: colors,
-      })
-      confetti({
-        particleCount: 3,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1, y: 0.6 },
+        particleCount: 5,
+        angle: config.angle,
+        spread: 60,
+        origin: config.origin,
         colors: colors,
       })
 
@@ -433,9 +444,9 @@ export function GameClient({ accessToken }: GameClientProps) {
     if (!buzzedTeam) return
 
     // Award points and celebrate!
-    useGameStore.getState().updateScore(buzzedTeam, 100)
+    useGameStore.getState().updateScore(buzzedTeam, 1)
     const team = teams.find(t => t.id === buzzedTeam)
-    console.log(`${team?.name} earned 100 points!`)
+    console.log(`${team?.name} earned 1 point!`)
     celebrate(buzzedTeam)
 
     // Clear buzzer and advance

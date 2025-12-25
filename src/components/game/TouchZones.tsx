@@ -55,6 +55,9 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
       {zones.map((zone) => {
         const isDisqualified = disqualifiedTeams.has(zone.teamId)
         const isCelebrating = celebratingTeam === zone.teamId
+        const team = teams.find(t => t.id === zone.teamId)
+        const score = team?.score ?? 0
+
         return (
           <button
             key={zone.id}
@@ -77,6 +80,19 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
               boxShadow: isCelebrating ? `0 0 40px ${zone.color}, 0 0 80px ${zone.color}` : undefined
             }}
           >
+            {/* Score display */}
+            {!isDisqualified && !isCelebrating && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div
+                  className="text-white text-5xl font-bold"
+                  style={{
+                    textShadow: '0 0 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.8), 2px 2px 4px rgba(0,0,0,1), -2px -2px 4px rgba(0,0,0,1)'
+                  }}
+                >
+                  {score}
+                </div>
+              </div>
+            )}
             {isDisqualified && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div

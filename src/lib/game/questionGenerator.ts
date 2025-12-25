@@ -38,10 +38,6 @@ export class QuestionGenerator {
         question: 'Who is the artist?',
         correctAnswer: track.artists[0]?.name || 'Unknown',
       },
-      {
-        question: 'What album is this from?',
-        correctAnswer: track.album?.name || 'Unknown',
-      },
     ]
 
     const selected = questions[Math.floor(Math.random() * questions.length)]
@@ -65,11 +61,6 @@ export class QuestionGenerator {
         question: 'Who is the artist?',
         correctAnswer: track.artists[0]?.name || 'Unknown',
         generateWrongAnswers: () => this.getRandomArtists(3, track.artists[0]?.name),
-      },
-      {
-        question: 'What album is this from?',
-        correctAnswer: track.album?.name || 'Unknown',
-        generateWrongAnswers: () => this.getRandomAlbums(3, track.album?.name),
       },
     ]
 
