@@ -8,6 +8,7 @@ import { useGameStore } from '@/src/store/gameStore'
 import { TwofoldText } from '@/src/components/game/TwofoldText'
 import { TouchZones } from '@/src/components/game/TouchZones'
 import { DraggableAnswer } from '@/src/components/game/DraggableAnswer'
+import { ScoreBoard } from '@/src/components/game/ScoreBoard'
 import { QuestionGenerator } from '@/src/lib/game/questionGenerator'
 import { SpotifyClient } from '@/src/lib/spotify/api'
 import type { SpotifyTrack } from '@/src/lib/spotify/types'
@@ -554,15 +555,25 @@ export function GameClient({ accessToken }: GameClientProps) {
         }}
       />
 
+      {/* Scoreboards on opposite sides (not blocking corners) */}
+      {gameStarted && (
+        <>
+          {/* Top scoreboard (offset from left edge to avoid corner) */}
+          <div className="absolute top-4 left-40 z-40">
+            <ScoreBoard teams={teams} />
+          </div>
+          {/* Bottom scoreboard (offset from right edge to avoid corner, rotated) */}
+          <div className="absolute bottom-4 right-40 z-40">
+            <ScoreBoard teams={teams} rotated />
+          </div>
+        </>
+      )}
+
       {/* Center content - readable from both sides */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="max-w-2xl w-full p-8">
-          <TwofoldText className="text-3xl font-bold text-white mb-4">
+          <TwofoldText className="text-3xl font-bold text-white mb-8">
             {playlist.name}
-          </TwofoldText>
-
-          <TwofoldText className="text-lg text-gray-400 mb-8">
-            {teams.length} teams playing
           </TwofoldText>
 
           {loading && (
@@ -670,21 +681,6 @@ export function GameClient({ accessToken }: GameClientProps) {
 
           {gameStarted && currentQuestion && (
             <div className="pointer-events-auto">
-              {/* Scoreboard */}
-              <div className="mb-6 grid grid-cols-2 gap-3">
-                {teams.map((team) => (
-                  <TwofoldText
-                    key={team.id}
-                    className="bg-gray-800 p-3 rounded-lg"
-                  >
-                    <span className="font-bold" style={{ color: team.color }}>
-                      {team.name}:
-                    </span>
-                    <span className="text-white ml-2">{team.score} pts</span>
-                  </TwofoldText>
-                ))}
-              </div>
-
               <TwofoldText className="text-2xl text-yellow-400 font-bold mb-6">
                 {currentQuestion.question}
               </TwofoldText>
@@ -711,7 +707,7 @@ export function GameClient({ accessToken }: GameClientProps) {
 
               {/* Stage 1: Has the team answered? */}
               {currentQuestion.type === 'buzz-in' && buzzedTeam && !showAnswerPrompt && (
-                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto">
+                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto shadow-2xl border-2 border-white/20 relative z-50">
                   <div className="text-2xl font-bold text-white mb-6 text-center">
                     Has {teams.find(t => t.id === buzzedTeam)?.name} answered?
                   </div>
@@ -726,7 +722,7 @@ export function GameClient({ accessToken }: GameClientProps) {
 
               {/* Stage 2: Was the answer correct? */}
               {currentQuestion.type === 'buzz-in' && buzzedTeam && showAnswerPrompt && (
-                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto">
+                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto shadow-2xl border-2 border-white/20 relative z-50">
                   <div className="text-xl text-gray-300 mb-4 text-center">
                     Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
                   </div>
@@ -752,7 +748,7 @@ export function GameClient({ accessToken }: GameClientProps) {
 
               {/* No answer dialog - shown when song ends without anyone answering */}
               {showNoAnswerDialog && (
-                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto">
+                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto shadow-2xl border-2 border-white/20 relative z-50">
                   <div className="text-xl text-gray-300 mb-4 text-center">
                     Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
                   </div>
