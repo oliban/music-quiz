@@ -8,7 +8,6 @@ import { useGameStore } from '@/src/store/gameStore'
 import { TwofoldText } from '@/src/components/game/TwofoldText'
 import { TouchZones } from '@/src/components/game/TouchZones'
 import { DraggableAnswer } from '@/src/components/game/DraggableAnswer'
-import { ScoreBoard } from '@/src/components/game/ScoreBoard'
 import { DualZoneLayout } from '@/src/components/game/DualZoneLayout'
 import { TeamZoneContent } from '@/src/components/game/TeamZoneContent'
 import { AlbumArtDisplay } from '@/src/components/game/AlbumArtDisplay'
@@ -33,6 +32,8 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [questionIndex, setQuestionIndex] = useState(0)
   const [loading, setLoading] = useState(false)
   const [answeredCorrectly, setAnsweredCorrectly] = useState(false)
+  const [selectedWrongAnswer, setSelectedWrongAnswer] = useState<string | null>(null)
+  const [wrongAnswerTeamId, setWrongAnswerTeamId] = useState<string | null>(null)
   const [playerReady, setPlayerReady] = useState(false)
   const [gameCompleted, setGameCompleted] = useState(false)
   const [buzzedTeam, setBuzzedTeam] = useState<string | null>(null)
@@ -384,6 +385,8 @@ export function GameClient({ accessToken }: GameClientProps) {
 
     setCurrentQuestion(question)
     setAnsweredCorrectly(false)
+    setSelectedWrongAnswer(null)
+    setWrongAnswerTeamId(null)
     setBuzzedTeam(null)
     setShowAnswerPrompt(false)
     setShowNoAnswerDialog(false)
@@ -738,16 +741,20 @@ export function GameClient({ accessToken }: GameClientProps) {
   const handleAnswerDrag = (answer: string, x: number, y: number, draggingTeamId: string) => {
     if (!currentQuestion || currentQuestion.type !== 'drag-to-corner' || answeredCorrectly) return
 
-    // Check ALL zones to see where the answer was dropped
+    // In 2-team tap mode, draggingTeamId is already provided
+    // Otherwise, check coordinates to see where the answer was dropped
     let droppedOnZone: string | null = null
-    let droppedOnTeamId: string | null = null
+    let droppedOnTeamId: string | null = draggingTeamId || null
 
-    for (const zone of touchZones) {
-      const rect = zoneRefs.current.get(zone.id)
-      if (rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-        droppedOnZone = zone.id
-        droppedOnTeamId = zone.teamId
-        break
+    // Only check coordinates if we don't already have a team ID (drag mode)
+    if (!droppedOnTeamId) {
+      for (const zone of touchZones) {
+        const rect = zoneRefs.current.get(zone.id)
+        if (rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+          droppedOnZone = zone.id
+          droppedOnTeamId = zone.teamId
+          break
+        }
       }
     }
 
@@ -780,6 +787,10 @@ export function GameClient({ accessToken }: GameClientProps) {
           handleNextQuestion()
         }, albumArtDelay)
       } else {
+        // Show wrong answer feedback
+        setSelectedWrongAnswer(answer)
+        setWrongAnswerTeamId(droppedOnTeamId)
+
         // Disqualify the team from trying again
         const newDisqualified = new Set([...disqualifiedTeams, droppedOnTeamId])
         setDisqualifiedTeams(newDisqualified)
@@ -1043,30 +1054,17 @@ export function GameClient({ accessToken }: GameClientProps) {
         }}
       />
 
-      {/* Scoreboards on left and right sides of middle section */}
-      {gameStarted && (
+      {/* Question counter on both sides */}
+      {gameStarted && currentQuestion && (
         <>
-          {/* Right scoreboard (rotated for teams on right side) */}
-          <div className={`absolute top-1/2 -translate-y-1/2 z-40 ${teams.length === 6 ? 'right-40' : 'right-4'}`}>
-            <ScoreBoard teams={teams} rotated />
-          </div>
-          {/* Left scoreboard (normal for teams on left side) */}
-          <div className={`absolute top-1/2 -translate-y-1/2 z-40 ${teams.length === 6 ? 'left-40' : 'left-4'}`}>
-            <ScoreBoard teams={teams} />
-          </div>
-          {/* Question counter below scoreboards on both sides */}
-          {currentQuestion && (
-            <>
-              {[
-                { side: 'left', className: teams.length === 6 ? 'left-40' : 'left-4' },
-                { side: 'right', className: teams.length === 6 ? 'right-40 rotate-180' : 'right-4 rotate-180' }
-              ].map(({ side, className }) => (
-                <div key={side} className={`absolute top-[calc(50%+80px)] text-gray-400 text-sm z-40 ${className}`}>
-                  Question {playedTrackIndices.size} of {tracks.length}
-                </div>
-              ))}
-            </>
-          )}
+          {[
+            { side: 'left', className: teams.length === 6 ? 'left-40' : 'left-4' },
+            { side: 'right', className: teams.length === 6 ? 'right-40 rotate-180' : 'right-4 rotate-180' }
+          ].map(({ side, className }) => (
+            <div key={side} className={`absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm z-40 ${className}`}>
+              Question {playedTrackIndices.size} of {tracks.length}
+            </div>
+          ))}
         </>
       )}
 
@@ -1188,9 +1186,11 @@ export function GameClient({ accessToken }: GameClientProps) {
           <DualZoneLayout
             upperContent={
               <TeamZoneContent
-                teams={[teams[0], ...(teams[2] ? [teams[2]] : [])]}
+                teams={teams}
                 currentQuestion={currentQuestion}
                 answeredCorrectly={answeredCorrectly}
+                selectedWrongAnswer={selectedWrongAnswer}
+                wrongAnswerTeamId={wrongAnswerTeamId}
                 onAnswerDrag={handleAnswerDrag}
                 playedCount={playedTrackIndices.size}
                 totalTracks={tracks.length}
@@ -1308,9 +1308,11 @@ export function GameClient({ accessToken }: GameClientProps) {
             }
             lowerContent={
               <TeamZoneContent
-                teams={[teams[1] || teams[0], ...(teams[3] ? [teams[3]] : [])]}
+                teams={teams}
                 currentQuestion={currentQuestion}
                 answeredCorrectly={answeredCorrectly}
+                selectedWrongAnswer={selectedWrongAnswer}
+                wrongAnswerTeamId={wrongAnswerTeamId}
                 onAnswerDrag={handleAnswerDrag}
                 playedCount={playedTrackIndices.size}
                 totalTracks={tracks.length}

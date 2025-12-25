@@ -36,6 +36,7 @@ const ZONE_ROTATIONS: Record<TouchZone['position'], string> = {
 
 export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, onZoneTouch, onZoneMount }: TouchZonesProps) {
   const zoneElementRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
+  const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map())
 
   useEffect(() => {
     if (onZoneMount) {
@@ -57,7 +58,29 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
     }
   }, [zones, onZoneMount])
 
+  const playBuzzerSound = (zone: TouchZone) => {
+    const team = teams.find(t => t.id === zone.teamId)
+    if (!team?.buzzerSound) return
+
+    // Get or create audio element for this team
+    let audio = audioRefs.current.get(zone.teamId)
+    if (!audio) {
+      audio = new Audio(team.buzzerSound)
+      audioRefs.current.set(zone.teamId, audio)
+    }
+
+    // Reset and play sound
+    audio.currentTime = 0
+    audio.play().catch(err => {
+      console.error('Failed to play buzzer sound:', err)
+    })
+  }
+
   const handleTouchStart = (zoneId: string) => {
+    const zone = zones.find(z => z.id === zoneId)
+    if (zone) {
+      playBuzzerSound(zone)
+    }
     onZoneTouch(zoneId)
   }
 

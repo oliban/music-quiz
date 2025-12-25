@@ -7,6 +7,7 @@ export interface Team {
   name: string
   score: number
   color: string
+  buzzerSound: string
 }
 
 export interface TouchZone {
@@ -62,7 +63,7 @@ const TEAM_COLORS = [
 const getZonePositions = (teamCount: number): TouchZone['position'][] => {
   switch (teamCount) {
     case 2:
-      return ['top-left', 'bottom-right']
+      return ['center-top', 'center-bottom']
     case 3:
       return ['top-left', 'top-right', 'center-bottom']
     case 4:

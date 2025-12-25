@@ -7,6 +7,8 @@ interface TeamZoneContentProps {
   teams: Team[]
   currentQuestion: GameQuestion | null
   answeredCorrectly: boolean
+  selectedWrongAnswer: string | null
+  wrongAnswerTeamId: string | null
   onAnswerDrag: (answer: string, x: number, y: number, teamId: string) => void
   playedCount: number
   totalTracks: number
@@ -18,6 +20,8 @@ export function TeamZoneContent({
   teams,
   currentQuestion,
   answeredCorrectly,
+  selectedWrongAnswer,
+  wrongAnswerTeamId,
   onAnswerDrag,
   playedCount,
   totalTracks,
@@ -25,6 +29,15 @@ export function TeamZoneContent({
   isRotated = false
 }: TeamZoneContentProps) {
   if (!currentQuestion) return null
+
+  // Check if we're in 2-team mode
+  const is2TeamMode = teams.length === 2
+
+  // Get the team for this zone (first team for upper zone, second for lower)
+  const teamForZone = isRotated ? teams[0] : teams[1]
+
+  // Check if this team answered wrong (only disable their buttons)
+  const thisTeamAnsweredWrong = wrongAnswerTeamId === teamForZone?.id
 
   return (
     <div className="h-full w-full relative flex flex-col items-center justify-center p-2 sm:p-4 pb-24 sm:pb-20 md:pb-16">
@@ -42,20 +55,42 @@ export function TeamZoneContent({
           </div>
         )}
 
-        {/* Multiple choice buttons for drag-to-corner questions */}
+        {/* Multiple choice buttons */}
         {currentQuestion.type === 'drag-to-corner' && currentQuestion.options && (
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-2 sm:mb-4 max-w-sm sm:max-w-md mx-auto">
-            {currentQuestion.options.map((option, index) => (
-              <DraggableAnswer
-                key={`shared-${index}`}
-                answer={option}
-                onDragEnd={(answer, x, y) => onAnswerDrag(answer, x, y, '')}
-                isAnswered={answeredCorrectly}
-                teamId=""
-                isRotated={isRotated}
-              />
-            ))}
-          </div>
+          <>
+            {is2TeamMode ? (
+              /* 2-Team Mode: Show team-colored buttons with tap interaction */
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-2 sm:mb-4 max-w-sm sm:max-w-md mx-auto">
+                {currentQuestion.options.map((option, index) => (
+                  <DraggableAnswer
+                    key={`team-${teamForZone?.id}-${index}`}
+                    answer={option}
+                    onDragEnd={(answer, x, y) => onAnswerDrag(answer, x, y, teamForZone?.id || '')}
+                    isAnswered={answeredCorrectly || thisTeamAnsweredWrong}
+                    isWrongAnswer={thisTeamAnsweredWrong && selectedWrongAnswer === option}
+                    teamId={teamForZone?.id}
+                    teamColor={teamForZone?.color}
+                    useTapMode={true}
+                    isRotated={isRotated}
+                  />
+                ))}
+              </div>
+            ) : (
+              /* Multi-Team Mode: Show shared white buttons with drag interaction */
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-2 sm:mb-4 max-w-sm sm:max-w-md mx-auto">
+                {currentQuestion.options.map((option, index) => (
+                  <DraggableAnswer
+                    key={`shared-${index}`}
+                    answer={option}
+                    onDragEnd={(answer, x, y) => onAnswerDrag(answer, x, y, '')}
+                    isAnswered={answeredCorrectly}
+                    teamId=""
+                    isRotated={isRotated}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

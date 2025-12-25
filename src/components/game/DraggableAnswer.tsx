@@ -6,11 +6,14 @@ interface DraggableAnswerProps {
   answer: string
   onDragEnd: (answer: string, x: number, y: number) => void
   isAnswered: boolean
+  isWrongAnswer?: boolean
   teamId?: string
   isRotated?: boolean
+  teamColor?: string
+  useTapMode?: boolean
 }
 
-export function DraggableAnswer({ answer, onDragEnd, isAnswered, teamId, isRotated = false }: DraggableAnswerProps) {
+export function DraggableAnswer({ answer, onDragEnd, isAnswered, isWrongAnswer = false, teamId, isRotated = false, teamColor, useTapMode = false }: DraggableAnswerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -18,7 +21,14 @@ export function DraggableAnswer({ answer, onDragEnd, isAnswered, teamId, isRotat
   const elementRef = useRef<HTMLDivElement>(null)
 
   const handleStart = (clientX: number, clientY: number) => {
-    if (isAnswered) return
+    // Disable interaction if answered or if this is the wrong answer
+    if (isAnswered || isWrongAnswer) return
+
+    // In tap mode, immediately trigger the answer selection
+    if (useTapMode) {
+      onDragEnd(answer, clientX, clientY)
+      return
+    }
 
     setIsDragging(true)
 
@@ -116,27 +126,42 @@ export function DraggableAnswer({ answer, onDragEnd, isAnswered, teamId, isRotat
   const visualX = isRotated ? -position.x : position.x
   const visualY = isRotated ? -position.y : position.y
 
+  const bgColor = teamColor || 'bg-white'
+  const textColor = teamColor ? 'text-white' : 'text-black'
+  const cursor = useTapMode ? 'cursor-pointer active:scale-95' : 'cursor-grab active:cursor-grabbing'
+  const isDisabled = isAnswered || isWrongAnswer
+
   return (
     <div
       ref={elementRef}
       className={`
-        relative bg-white text-black p-3 sm:p-6 rounded-xl font-bold text-sm sm:text-xl
-        cursor-grab active:cursor-grabbing select-none
-        transition-transform shadow-lg
+        relative ${bgColor} ${textColor} p-3 sm:p-6 rounded-xl font-bold text-sm sm:text-xl
+        ${isDisabled ? 'cursor-not-allowed' : cursor} select-none
+        transition-all shadow-lg border-2 border-white/20
         ${isDragging ? 'scale-110 shadow-2xl z-[9999]' : ''}
-        ${isAnswered ? 'opacity-30 cursor-not-allowed' : ''}
+        ${useTapMode && !isDisabled ? 'hover:scale-105 hover:shadow-xl' : ''}
+        ${isDisabled ? 'opacity-30' : ''}
+        ${isWrongAnswer ? 'border-red-500 border-4' : ''}
       `}
       style={{
-        transform: `translate(${visualX}px, ${visualY}px)`,
+        transform: useTapMode ? undefined : `translate(${visualX}px, ${visualY}px)`,
         touchAction: 'none',
+        backgroundColor: teamColor,
       }}
       data-team-id={teamId}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onTouchMove={useTapMode ? undefined : handleTouchMove}
+      onTouchEnd={useTapMode ? undefined : handleTouchEnd}
     >
-      {answer}
+      {isWrongAnswer ? (
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-2xl sm:text-4xl">✗</span>
+          <span>{answer}</span>
+        </div>
+      ) : (
+        answer
+      )}
     </div>
   )
 }
