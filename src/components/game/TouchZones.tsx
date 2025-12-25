@@ -79,7 +79,14 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
           >
             {isDisqualified && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-red-500 text-6xl font-bold drop-shadow-lg">✗</div>
+                <div
+                  className="text-white text-6xl font-bold"
+                  style={{
+                    textShadow: '0 0 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.8), 2px 2px 4px rgba(0,0,0,1), -2px -2px 4px rgba(0,0,0,1)'
+                  }}
+                >
+                  ✗
+                </div>
               </div>
             )}
             {isCelebrating && (
