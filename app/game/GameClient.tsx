@@ -158,10 +158,20 @@ export function GameClient({ accessToken }: GameClientProps) {
         setTracks(playlistTracks)
 
         // Initialize question generator
-        questionGeneratorRef.current = new QuestionGenerator({
+        const generator = new QuestionGenerator({
           tracks: playlistTracks,
           lastFmApiKey: process.env.NEXT_PUBLIC_LASTFM_API_KEY
         })
+
+        // Validate playlist has sufficient data
+        if (!generator.isValid()) {
+          const warnings = generator.getWarnings()
+          console.error('Playlist validation failed:', warnings)
+          alert(`Cannot start game:\n\n${warnings.join('\n\n')}\n\nPlease select a different playlist.`)
+          return
+        }
+
+        questionGeneratorRef.current = generator
       } catch (error) {
         console.error('Failed to load tracks:', error)
       } finally {
@@ -365,7 +375,13 @@ export function GameClient({ accessToken }: GameClientProps) {
   }
 
   const handlePlayAudio = async () => {
-    if (currentQuestion && playerReady && currentQuestion.track.uri) {
+    if (!playerRef.current || !playerReady) return
+
+    // If player is paused, resume instead of restarting
+    if (playerRef.current && !isPlaying) {
+      playerRef.current.resume()
+    } else if (currentQuestion && currentQuestion.track.uri) {
+      // Start playing the track from the beginning
       await playTrack(currentQuestion.track.uri)
     }
   }
@@ -545,13 +561,15 @@ export function GameClient({ accessToken }: GameClientProps) {
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
-      {/* Logout button */}
-      <button
-        onClick={() => signOut({ callbackUrl: '/' })}
-        className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white transition-colors text-xs bg-black/50 px-3 py-1 rounded"
-      >
-        Log Out
-      </button>
+      {/* Logout button - only on start page */}
+      {!gameStarted && !gameCompleted && (
+        <button
+          onClick={() => signOut({ callbackUrl: '/' })}
+          className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white transition-colors text-xs bg-black/50 px-3 py-1 rounded"
+        >
+          Log Out
+        </button>
+      )}
 
       {/* Touch zones */}
       <TouchZones
@@ -565,17 +583,30 @@ export function GameClient({ accessToken }: GameClientProps) {
         }}
       />
 
-      {/* Scoreboards on opposite sides (not blocking corners) */}
+      {/* Scoreboards on left and right sides of middle section */}
       {gameStarted && (
         <>
-          {/* Top scoreboard (offset from right edge to avoid corner, rotated) */}
-          <div className="absolute top-4 right-40 z-40">
+          {/* Right scoreboard (rotated for teams on right side) */}
+          <div className={`absolute top-1/2 -translate-y-1/2 z-40 ${teams.length === 6 ? 'right-40' : 'right-4'}`}>
             <ScoreBoard teams={teams} rotated />
           </div>
-          {/* Bottom scoreboard (offset from left edge to avoid corner) */}
-          <div className="absolute bottom-4 left-40 z-40">
+          {/* Left scoreboard (normal for teams on left side) */}
+          <div className={`absolute top-1/2 -translate-y-1/2 z-40 ${teams.length === 6 ? 'left-40' : 'left-4'}`}>
             <ScoreBoard teams={teams} />
           </div>
+          {/* Question counter below scoreboards on both sides */}
+          {currentQuestion && (
+            <>
+              {[
+                { side: 'left', className: teams.length === 6 ? 'left-40' : 'left-4' },
+                { side: 'right', className: teams.length === 6 ? 'right-40 rotate-180' : 'right-4 rotate-180' }
+              ].map(({ side, className }) => (
+                <div key={side} className={`absolute top-[calc(50%+80px)] text-gray-400 text-sm z-40 ${className}`}>
+                  Question {playedTrackIndices.size} of {tracks.length}
+                </div>
+              ))}
+            </>
+          )}
         </>
       )}
 
@@ -709,17 +740,17 @@ export function GameClient({ accessToken }: GameClientProps) {
             }
             centerContent={
               <>
-                {/* Play button - positioned to the left */}
-                <div className="absolute left-8 top-1/2 -translate-y-1/2">
+                {/* Play/Pause button - positioned at top of center zone, above scoreboard */}
+                <div className={`absolute top-4 ${teams.length === 6 ? 'left-40' : 'left-4'}`}>
                   <button
-                    onClick={handlePlayAudio}
+                    onClick={isPlaying ? handleStopAudio : handlePlayAudio}
                     className={`${
                       isPlaying
                         ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
-                        : 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700'
+                        : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
                     } text-white font-bold py-3 px-6 rounded-full transition-colors touch-manipulation shadow-lg`}
                   >
-                    {isPlaying ? '🎵 Playing...' : '🎵 Play'}
+                    {isPlaying ? '🎵 Playing...' : '⏸️ Paused'}
                   </button>
                 </div>
 

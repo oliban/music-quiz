@@ -31,7 +31,7 @@ export function TeamZoneContent({
       {/* Content container */}
       <div className="max-w-4xl w-full">
         {/* Question text */}
-        <div className="text-xl text-yellow-400 font-bold mb-4 text-center">
+        <div className="text-3xl text-yellow-400 font-bold mb-4 text-center">
           {currentQuestion.question}
         </div>
 
@@ -52,15 +52,11 @@ export function TeamZoneContent({
                 onDragEnd={(answer, x, y) => onAnswerDrag(answer, x, y, '')}
                 isAnswered={answeredCorrectly}
                 teamId=""
+                isRotated={isRotated}
               />
             ))}
           </div>
         )}
-
-        {/* Track counter */}
-        <div className="text-gray-400 text-sm text-center">
-          Question {playedCount} of {totalTracks}
-        </div>
       </div>
     </div>
   )

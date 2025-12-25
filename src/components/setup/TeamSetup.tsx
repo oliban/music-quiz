@@ -58,9 +58,9 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
       <h2 className="text-3xl font-bold text-white mb-6">Team Setup</h2>
 
       <div className="mb-8">
-        <label className="block text-white text-lg mb-4">Number of Teams</label>
+        <label className="block text-white text-lg mb-4">Number of Teams (max 6)</label>
         <div className="flex gap-2">
-          {[2, 3, 4, 5, 6, 7].map((count) => (
+          {[2, 3, 4, 5, 6].map((count) => (
             <button
               key={count}
               onClick={() => handleTeamCountChange(count)}

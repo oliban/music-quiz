@@ -10,12 +10,58 @@ export interface QuestionGeneratorOptions {
 export class QuestionGenerator {
   private tracks: SpotifyTrack[]
   private lastFmClient: LastFmClient | null
+  private validationResult: { isValid: boolean; warnings: string[] }
 
   constructor(options: QuestionGeneratorOptions) {
     this.tracks = options.tracks
     this.lastFmClient = options.lastFmApiKey
       ? new LastFmClient(options.lastFmApiKey)
       : null
+    this.validationResult = this.validatePlaylistData()
+  }
+
+  // Public validation methods
+  public isValid(): boolean {
+    return this.validationResult.isValid
+  }
+
+  public getWarnings(): string[] {
+    return this.validationResult.warnings
+  }
+
+  private validatePlaylistData(): { isValid: boolean; warnings: string[] } {
+    const warnings: string[] = []
+
+    // Check minimum track count
+    if (this.tracks.length < 8) {
+      warnings.push(`Playlist too small (${this.tracks.length} tracks). Minimum 8 tracks required for quality questions.`)
+      return { isValid: false, warnings }
+    }
+
+    // Check unique song names
+    const uniqueSongNames = new Set(this.tracks.map(t => t.name.toLowerCase().trim()))
+    if (uniqueSongNames.size < 4) {
+      warnings.push(`Not enough unique song titles (${uniqueSongNames.size}). Need at least 4 for song title questions.`)
+    }
+
+    // Check unique artists
+    const uniqueArtists = new Set(
+      this.tracks.flatMap(t => t.artists.map(a => a.name.toLowerCase().trim()))
+    )
+    if (uniqueArtists.size < 4) {
+      warnings.push(`Not enough unique artists (${uniqueArtists.size}). Need at least 4 for artist questions.`)
+    }
+
+    // If we have enough tracks but specific question types are limited, still allow game
+    // as long as at least one question type is available
+    const hasValidQuestionTypes = uniqueSongNames.size >= 4 || uniqueArtists.size >= 4
+
+    if (!hasValidQuestionTypes) {
+      warnings.push('Insufficient unique content for any question type.')
+      return { isValid: false, warnings }
+    }
+
+    return { isValid: true, warnings }
   }
 
   async generateQuestion(currentTrack: SpotifyTrack, questionIndex: number): Promise<GameQuestion> {
@@ -50,23 +96,38 @@ export class QuestionGenerator {
     }
   }
 
-  private async generateDragToCornerQuestion(track: SpotifyTrack): Promise<GameQuestion> {
+  private async getAvailableQuestionTypes(track: SpotifyTrack): Promise<Array<{
+    question: string
+    correctAnswer: string
+    generateWrongAnswers: () => Promise<string[]> | string[]
+  }>> {
     const questionTypes: Array<{
       question: string
       correctAnswer: string
       generateWrongAnswers: () => Promise<string[]> | string[]
-    }> = [
-      {
+    }> = []
+
+    // Song title questions - need 4+ unique song names
+    const uniqueSongNames = new Set(this.tracks.map(t => t.name.toLowerCase().trim()))
+    if (uniqueSongNames.size >= 4) {
+      questionTypes.push({
         question: 'Which is the correct song title?',
         correctAnswer: track.name,
         generateWrongAnswers: () => this.getRandomTrackNames(3, track.id),
-      },
-      {
+      })
+    }
+
+    // Artist questions - need 4+ unique artists
+    const uniqueArtists = new Set(
+      this.tracks.flatMap(t => t.artists.map(a => a.name.toLowerCase().trim()))
+    )
+    if (uniqueArtists.size >= 4) {
+      questionTypes.push({
         question: 'Who is the artist?',
         correctAnswer: track.artists[0]?.name || 'Unknown',
         generateWrongAnswers: () => this.getRandomArtists(3, track.artists[0]?.name),
-      },
-    ]
+      })
+    }
 
     // Add trivia questions if Last.fm is available
     if (this.lastFmClient) {
@@ -103,32 +164,34 @@ export class QuestionGenerator {
           },
         })
       }
+    }
 
-      // Similar artist question
-      const artist = track.artists[0]?.name
-      if (artist) {
-        const similarArtists = await this.lastFmClient.searchSimilarArtists(artist, 4)
+    return questionTypes
+  }
 
-        if (similarArtists.length >= 3) {
-          const correctArtist = similarArtists[0]
-          questionTypes.push({
-            question: `Which artist is similar to ${artist}?`,
-            correctAnswer: correctArtist,
-            generateWrongAnswers: () => this.getRandomArtists(3, artist),
-          })
-        }
-      }
+  private async generateDragToCornerQuestion(track: SpotifyTrack): Promise<GameQuestion> {
+    const questionTypes = await this.getAvailableQuestionTypes(track)
+
+    if (questionTypes.length === 0) {
+      throw new Error('Insufficient data for any question type')
     }
 
     const selected = questionTypes[Math.floor(Math.random() * questionTypes.length)]
     const wrongAnswers = await selected.generateWrongAnswers()
 
-    // Ensure we have at least 3 wrong answers by padding with generic options if needed
-    while (wrongAnswers.length < 3) {
-      wrongAnswers.push(`Option ${wrongAnswers.length + 1}`)
+    // Validate and ensure unique wrong answers
+    const validatedWrongAnswers = this.ensureUniqueWrongAnswers(
+      selected.correctAnswer,
+      wrongAnswers,
+      3
+    )
+
+    // If insufficient unique answers, try another question type
+    if (!validatedWrongAnswers) {
+      return this.generateDragToCornerQuestion(track)
     }
 
-    const options = this.shuffleArray([selected.correctAnswer, ...wrongAnswers.slice(0, 3)])
+    const options = this.shuffleArray([selected.correctAnswer, ...validatedWrongAnswers])
 
     return {
       type: 'drag-to-corner',
@@ -140,8 +203,19 @@ export class QuestionGenerator {
   }
 
   private getRandomTrackNames(count: number, excludeId: string): string[] {
+    // Filter out current track
     const otherTracks = this.tracks.filter((t) => t.id !== excludeId)
-    return this.getRandomItems(otherTracks, count).map((t) => t.name)
+
+    // Deduplicate by name (case-insensitive)
+    const uniqueNames = new Map<string, string>()
+    otherTracks.forEach(track => {
+      const normalized = track.name.toLowerCase().trim()
+      if (!uniqueNames.has(normalized)) {
+        uniqueNames.set(normalized, track.name)
+      }
+    })
+
+    return this.getRandomItems(Array.from(uniqueNames.values()), count)
   }
 
   private getRandomArtists(count: number, excludeName?: string): string[] {
@@ -159,6 +233,29 @@ export class QuestionGenerator {
       .filter((name): name is string => name !== undefined && name !== excludeName)
     const unique = [...new Set(albums)]
     return this.getRandomItems(unique, count)
+  }
+
+  private ensureUniqueWrongAnswers(
+    correctAnswer: string,
+    wrongAnswers: string[],
+    requiredCount: number
+  ): string[] | null {
+    const normalized = correctAnswer.toLowerCase().trim()
+
+    // Filter out any wrong answer that matches correct answer
+    const filtered = wrongAnswers.filter(
+      ans => ans.toLowerCase().trim() !== normalized
+    )
+
+    // Deduplicate wrong answers (case-insensitive)
+    const unique = Array.from(
+      new Map(
+        filtered.map(ans => [ans.toLowerCase().trim(), ans])
+      ).values()
+    )
+
+    // Return null if insufficient unique answers
+    return unique.length >= requiredCount ? unique.slice(0, requiredCount) : null
   }
 
   private getRandomItems<T>(array: T[], count: number): T[] {

@@ -23,6 +23,17 @@ const ZONE_STYLES: Record<TouchZone['position'], string> = {
   'right-middle': 'top-1/2 right-0 -translate-y-1/2',
 }
 
+const ZONE_ROTATIONS: Record<TouchZone['position'], string> = {
+  'top-left': 'rotate-180',
+  'top-right': 'rotate-180',
+  'center-top': 'rotate-180',
+  'bottom-left': '',
+  'bottom-right': '',
+  'center-bottom': '',
+  'left-middle': '-rotate-45',
+  'right-middle': 'rotate-45',
+}
+
 export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, onZoneTouch, onZoneMount }: TouchZonesProps) {
   const zoneElementRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
@@ -68,7 +79,7 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
             }}
             onTouchStart={() => handleTouchStart(zone.id)}
             onClick={() => handleTouchStart(zone.id)}
-            className={`absolute w-32 h-32 rounded-lg border-4 transition-all active:scale-95 z-[100] ${ZONE_STYLES[zone.position]} ${
+            className={`absolute w-32 h-32 rounded-lg border-4 transition-all active:scale-95 z-[100] ${ZONE_STYLES[zone.position]} ${ZONE_ROTATIONS[zone.position]} ${
               isDisqualified
                 ? 'border-red-500 opacity-50'
                 : isCelebrating

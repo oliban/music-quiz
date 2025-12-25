@@ -7,9 +7,10 @@ interface DraggableAnswerProps {
   onDragEnd: (answer: string, x: number, y: number) => void
   isAnswered: boolean
   teamId?: string
+  isRotated?: boolean
 }
 
-export function DraggableAnswer({ answer, onDragEnd, isAnswered, teamId }: DraggableAnswerProps) {
+export function DraggableAnswer({ answer, onDragEnd, isAnswered, teamId, isRotated = false }: DraggableAnswerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -111,6 +112,10 @@ export function DraggableAnswer({ answer, onDragEnd, isAnswered, teamId }: Dragg
     handleEnd(touch.clientX, touch.clientY)
   }
 
+  // Invert position for rotated zones so drag direction matches visual expectation
+  const visualX = isRotated ? -position.x : position.x
+  const visualY = isRotated ? -position.y : position.y
+
   return (
     <div
       ref={elementRef}
@@ -118,11 +123,11 @@ export function DraggableAnswer({ answer, onDragEnd, isAnswered, teamId }: Dragg
         relative bg-white text-black p-6 rounded-xl font-bold text-xl
         cursor-grab active:cursor-grabbing select-none
         transition-transform shadow-lg
-        ${isDragging ? 'scale-110 shadow-2xl z-50' : ''}
+        ${isDragging ? 'scale-110 shadow-2xl z-[9999]' : ''}
         ${isAnswered ? 'opacity-30 cursor-not-allowed' : ''}
       `}
       style={{
-        transform: `translate(${position.x}px, ${position.y}px)`,
+        transform: `translate(${visualX}px, ${visualY}px)`,
         touchAction: 'none',
       }}
       data-team-id={teamId}

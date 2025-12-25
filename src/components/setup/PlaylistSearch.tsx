@@ -9,6 +9,8 @@ interface PlaylistSearchProps {
   fetcher?: (url: string) => Promise<Response>
 }
 
+const MIN_TRACKS = 8
+
 export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: PlaylistSearchProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SpotifyPlaylist[]>([])
@@ -46,16 +48,46 @@ export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: Playl
     onSelect(playlist)
   }
 
+  const quickSearches = [
+    { label: "🎸 Classic Rock", query: "classic rock" },
+    { label: "🎵 80s Hits", query: "80s hits" },
+    { label: "🎤 90s Pop", query: "90s pop" },
+    { label: "🔥 Top 100", query: "top 100" },
+    { label: "🎧 Party Hits", query: "party music" },
+    { label: "🎹 Greatest Hits", query: "greatest hits" },
+  ]
+
+  const handleQuickSearch = (searchQuery: string) => {
+    setQuery(searchQuery)
+    handleSearch(searchQuery)
+  }
+
   return (
     <div className="w-full max-w-2xl mx-auto p-4">
-      <div className="mb-6">
+      <div className="mb-4">
+        <label className="block text-white text-lg mb-2 font-bold">Search for a Playlist</label>
         <input
           type="text"
           placeholder="Search for playlists..."
           value={query}
           onChange={handleInputChange}
-          className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
+          className="w-full px-4 py-3 text-lg border-2 border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
         />
+      </div>
+
+      <div className="mb-6">
+        <p className="text-gray-300 text-sm mb-3">Quick searches perfect for the game:</p>
+        <div className="flex flex-wrap gap-2">
+          {quickSearches.map((search) => (
+            <button
+              key={search.query}
+              onClick={() => handleQuickSearch(search.query)}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-full transition-all transform hover:scale-105 shadow-lg"
+            >
+              {search.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading && (
@@ -66,36 +98,49 @@ export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: Playl
 
       {!loading && results.length > 0 && (
         <div className="space-y-2">
-          {results.map((playlist) => (
-            <button
-              key={playlist.id}
-              onClick={() => handleSelect(playlist)}
-              className={`w-full p-4 rounded-lg text-left transition-colors ${
-                selected?.id === playlist.id
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-800 text-white hover:bg-gray-700'
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                {playlist.images?.[0]?.url && (
-                  <img
-                    src={playlist.images[0].url}
-                    alt={playlist.name}
-                    className="w-16 h-16 rounded object-cover"
-                  />
-                )}
-                <div>
-                  <h3 className="font-bold text-lg">{playlist.name}</h3>
-                  {playlist.description && (
-                    <p className="text-sm text-gray-300">{playlist.description}</p>
+          {results.map((playlist) => {
+            const trackCount = playlist.tracks?.total || 0
+            const isTooSmall = trackCount < MIN_TRACKS
+            const isSelected = selected?.id === playlist.id
+
+            return (
+              <button
+                key={playlist.id}
+                onClick={() => !isTooSmall && handleSelect(playlist)}
+                disabled={isTooSmall}
+                title={isTooSmall ? 'Too few tracks' : ''}
+                className={`w-full p-4 rounded-lg text-left transition-colors ${
+                  isTooSmall
+                    ? 'bg-gray-900 text-gray-600 opacity-50 cursor-not-allowed'
+                    : isSelected
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-800 text-white hover:bg-gray-700 cursor-pointer'
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  {playlist.images?.[0]?.url && (
+                    <img
+                      src={playlist.images[0].url}
+                      alt={playlist.name}
+                      className={`w-16 h-16 rounded object-cover ${isTooSmall ? 'grayscale' : ''}`}
+                    />
                   )}
-                  {playlist.tracks && (
-                    <p className="text-sm text-gray-400">{playlist.tracks.total} tracks</p>
-                  )}
+                  <div>
+                    <h3 className="font-bold text-lg">{playlist.name}</h3>
+                    {playlist.description && (
+                      <p className="text-sm text-gray-300">{playlist.description}</p>
+                    )}
+                    {playlist.tracks && (
+                      <p className={`text-sm ${isTooSmall ? 'text-red-400' : 'text-gray-400'}`}>
+                        {playlist.tracks.total} tracks
+                        {isTooSmall && ' (minimum 8 required)'}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </div>
       )}
 
