@@ -241,7 +241,11 @@ export function GameClient({ accessToken }: GameClientProps) {
         console.error('  Error message:', error?.error?.message || 'No message')
         console.error('  Error reason:', error?.error?.reason || 'No reason')
 
-        if (response.status === 403) {
+        if (response.status === 404 && error?.error?.message === 'Device not found') {
+          console.warn('⚠️ Device expired/not found - this is normal during development with hot reload')
+          console.warn('💡 Click "Play Audio" button to start playback manually')
+          setIsPlaying(false)
+        } else if (response.status === 403) {
           console.error('⚠️ 403 Forbidden - Possible causes:')
           console.error('  1. Token scopes missing (should have: streaming, user-modify-playback-state)')
           console.error('  2. Device not properly activated')
@@ -644,20 +648,12 @@ export function GameClient({ accessToken }: GameClientProps) {
                   <div className="text-2xl font-bold text-white mb-6 text-center">
                     Has {teams.find(t => t.id === buzzedTeam)?.name} answered?
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      onClick={() => handleHasAnswered(true)}
-                      className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-6 rounded-full text-xl transition-colors touch-manipulation"
-                    >
-                      ✓ Yes
-                    </button>
-                    <button
-                      onClick={() => handleHasAnswered(false)}
-                      className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-xl transition-colors touch-manipulation"
-                    >
-                      ✗ No
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleHasAnswered(true)}
+                    className="w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors touch-manipulation"
+                  >
+                    ✓ Yes
+                  </button>
                 </div>
               )}
 
