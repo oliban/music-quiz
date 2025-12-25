@@ -38,10 +38,12 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [shuffleMode, setShuffleMode] = useState(true)
   const [playedTrackIndices, setPlayedTrackIndices] = useState<Set<number>>(new Set())
   const [celebratingTeam, setCelebratingTeam] = useState<string | null>(null)
+  const [showNoAnswerDialog, setShowNoAnswerDialog] = useState(false)
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const zoneRefs = useRef<Map<string, DOMRect>>(new Map())
   const playerRef = useRef<any>(null)
   const deviceIdRef = useRef<string | null>(null)
+  const hasAnswerRef = useRef(false)
 
   useEffect(() => {
     if (!playlist || teams.length === 0) {
@@ -98,6 +100,23 @@ export function GameClient({ accessToken }: GameClientProps) {
 
       player.addListener('account_error', ({ message }: { message: string }) => {
         console.error('❌ Account Error: This requires Spotify Premium', message)
+      })
+
+      // Track state changes (to detect when song ends)
+      player.addListener('player_state_changed', (state: any) => {
+        if (!state) return
+
+        setIsPlaying(!state.paused)
+
+        // Check if track ended - Spotify sets position to 0 when track finishes
+        if (state.paused && state.position === 0 && state.duration > 0) {
+          console.log('Track ended')
+          // Check if no one has answered yet (using ref to avoid stale closure)
+          if (!hasAnswerRef.current) {
+            console.log('Track ended with no answer - showing continue dialog')
+            setShowNoAnswerDialog(true)
+          }
+        }
       })
 
       player.connect()
@@ -203,7 +222,9 @@ export function GameClient({ accessToken }: GameClientProps) {
     setAnsweredCorrectly(false)
     setBuzzedTeam(null)
     setShowAnswerPrompt(false)
+    setShowNoAnswerDialog(false)
     setDisqualifiedTeams(new Set())
+    hasAnswerRef.current = false
 
     // Play full song using Spotify Web Playback SDK
     if (playerReady && deviceIdRef.current) {
@@ -293,6 +314,7 @@ export function GameClient({ accessToken }: GameClientProps) {
 
       if (isCorrect) {
         setAnsweredCorrectly(true)
+        hasAnswerRef.current = true
         useGameStore.getState().updateScore(droppedOnTeamId, 1)
         console.log(`${team?.name} earned 1 point!`)
         celebrate(droppedOnTeamId)
@@ -444,6 +466,7 @@ export function GameClient({ accessToken }: GameClientProps) {
     if (!buzzedTeam) return
 
     // Award points and celebrate!
+    hasAnswerRef.current = true
     useGameStore.getState().updateScore(buzzedTeam, 1)
     const team = teams.find(t => t.id === buzzedTeam)
     console.log(`${team?.name} earned 1 point!`)
@@ -460,6 +483,7 @@ export function GameClient({ accessToken }: GameClientProps) {
 
   const handleBuzzIncorrect = () => {
     // No points awarded
+    hasAnswerRef.current = true
     const team = teams.find(t => t.id === buzzedTeam)
     console.log(`${team?.name} got it wrong - no points awarded`)
 
@@ -471,8 +495,17 @@ export function GameClient({ accessToken }: GameClientProps) {
     }, 1500)
   }
 
+  const handleNoAnswerContinue = () => {
+    console.log('No answer given - moving to next question')
+    setShowNoAnswerDialog(false)
+    handleNextQuestion()
+  }
+
   const handleZoneTouch = (zoneId: string) => {
     if (!currentQuestion) return
+
+    // Zone touches only work for buzz-in questions, not multiple choice
+    if (currentQuestion.type !== 'buzz-in') return
 
     const zone = touchZones.find((z) => z.id === zoneId)
     if (!zone) return
@@ -482,46 +515,15 @@ export function GameClient({ accessToken }: GameClientProps) {
 
     console.log(`Team ${team.name} touched zone ${zoneId}`)
 
-    if (currentQuestion.type === 'buzz-in') {
-      // For buzz-in, first team to touch gets to answer
-      if (!buzzedTeam) {
-        setBuzzedTeam(team.id)
-        setIsPlaying(false)
-        console.log(`${team.name} buzzed in! Stopping music...`)
+    // For buzz-in, first team to touch gets to answer
+    if (!buzzedTeam) {
+      setBuzzedTeam(team.id)
+      setIsPlaying(false)
+      console.log(`${team.name} buzzed in! Stopping music...`)
 
-        // Stop the music
-        if (playerRef.current) {
-          playerRef.current.pause()
-        }
-      }
-    } else if (currentQuestion.type === 'drag-to-corner' && currentQuestion.options) {
-      // Map zones to options (top-left, top-right, bottom-left, bottom-right)
-      const zoneToOptionIndex: Record<string, number> = {
-        'top-left': 0,
-        'top-right': 1,
-        'bottom-left': 2,
-        'bottom-right': 3,
-      }
-
-      const optionIndex = zoneToOptionIndex[zone.position]
-      if (optionIndex !== undefined) {
-        const selectedAnswer = currentQuestion.options[optionIndex]
-        const isCorrect = selectedAnswer === currentQuestion.correctAnswer
-
-        console.log(`Team ${team.name} selected: ${selectedAnswer}`)
-        console.log(`Correct answer: ${currentQuestion.correctAnswer}`)
-        console.log(`Is correct: ${isCorrect}`)
-
-        if (isCorrect) {
-          // Award points using Zustand store
-          useGameStore.getState().updateScore(team.id, 100)
-          console.log(`Team ${team.name} earned 100 points!`)
-        }
-
-        // Advance to next question after a brief delay
-        setTimeout(() => {
-          handleNextQuestion()
-        }, 1500)
+      // Stop the music
+      if (playerRef.current) {
+        playerRef.current.pause()
       }
     }
   }
@@ -745,6 +747,24 @@ export function GameClient({ accessToken }: GameClientProps) {
                       ✗ No
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* No answer dialog - shown when song ends without anyone answering */}
+              {showNoAnswerDialog && (
+                <div className="bg-gray-800 p-6 rounded-xl mb-6 max-w-md mx-auto">
+                  <div className="text-xl text-gray-300 mb-4 text-center">
+                    Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
+                  </div>
+                  <div className="text-2xl font-bold text-white mb-6 text-center">
+                    Time's up! No one answered.
+                  </div>
+                  <button
+                    onClick={handleNoAnswerContinue}
+                    className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors touch-manipulation"
+                  >
+                    Continue
+                  </button>
                 </div>
               )}
 
