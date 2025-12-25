@@ -27,7 +27,7 @@ export function TeamZoneContent({
   if (!currentQuestion) return null
 
   return (
-    <div className="h-full w-full relative flex flex-col items-center justify-center p-2 sm:p-4">
+    <div className="h-full w-full relative flex flex-col items-center justify-center p-2 sm:p-4 pb-24 sm:pb-20 md:pb-16">
       {/* Content container */}
       <div className="max-w-4xl w-full">
         {/* Question text */}

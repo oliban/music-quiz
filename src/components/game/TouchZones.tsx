@@ -79,11 +79,11 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
             }}
             onTouchStart={() => handleTouchStart(zone.id)}
             onClick={() => handleTouchStart(zone.id)}
-            className={`absolute w-32 h-32 rounded-lg border-4 transition-all active:scale-95 z-[100] ${ZONE_STYLES[zone.position]} ${ZONE_ROTATIONS[zone.position]} ${
+            className={`absolute w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-lg border-2 sm:border-4 transition-all active:scale-95 z-[100] ${ZONE_STYLES[zone.position]} ${ZONE_ROTATIONS[zone.position]} ${
               isDisqualified
                 ? 'border-red-500 opacity-50'
                 : isCelebrating
-                ? 'border-yellow-400 border-8 animate-pulse scale-110 shadow-2xl'
+                ? 'border-yellow-400 border-4 sm:border-8 animate-pulse scale-110 shadow-2xl'
                 : 'border-white/20'
             }`}
             style={{
@@ -95,7 +95,7 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
             {!isDisqualified && !isCelebrating && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div
-                  className="text-white text-5xl font-bold"
+                  className="text-white text-3xl sm:text-4xl md:text-5xl font-bold"
                   style={{
                     textShadow: '0 0 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.8), 2px 2px 4px rgba(0,0,0,1), -2px -2px 4px rgba(0,0,0,1)'
                   }}
@@ -107,7 +107,7 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
             {isDisqualified && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div
-                  className="text-white text-6xl font-bold"
+                  className="text-white text-4xl sm:text-5xl md:text-6xl font-bold"
                   style={{
                     textShadow: '0 0 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.8), 2px 2px 4px rgba(0,0,0,1), -2px -2px 4px rgba(0,0,0,1)'
                   }}
@@ -118,7 +118,7 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
             )}
             {isCelebrating && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-yellow-400 text-7xl animate-bounce">🎉</div>
+                <div className="text-yellow-400 text-5xl sm:text-6xl md:text-7xl animate-bounce">🎉</div>
               </div>
             )}
             <span className="sr-only">Team Zone {zone.teamId}</span>

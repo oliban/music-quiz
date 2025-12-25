@@ -545,7 +545,7 @@ export function GameClient({ accessToken }: GameClientProps) {
       }
 
       try {
-        console.log('🎵 Playing 30-second preview:', currentQuestion.track.name)
+        console.log('🎵 Playing 30-second preview:', currentQuestion?.track?.name || 'Loading...')
         console.log('📎 Preview URL:', previewUrl)
 
         // Set the source and attempt to play
@@ -567,11 +567,14 @@ export function GameClient({ accessToken }: GameClientProps) {
 
         if (error.name === 'NotAllowedError') {
           // Autoplay was blocked by the browser
-          alert('Audio playback blocked. Please tap the Play button to start.')
+          console.log('🚫 Auto-play blocked - tap play button to start')
         } else if (error.name === 'NotSupportedError') {
           alert('This audio format is not supported on your device.')
         } else {
-          alert('Failed to play audio. Please check your internet connection and try again.')
+          // Suppress common initialization errors
+          if (!error.message?.includes('The play() request was interrupted')) {
+            console.warn('⚠️ Audio play error:', error.message)
+          }
         }
 
         setIsPlaying(false)
