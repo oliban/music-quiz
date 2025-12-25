@@ -34,6 +34,8 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [showAnswerPrompt, setShowAnswerPrompt] = useState(false)
   const [disqualifiedTeams, setDisqualifiedTeams] = useState<Set<string>>(new Set())
   const [isPlaying, setIsPlaying] = useState(false)
+  const [shuffleMode, setShuffleMode] = useState(true)
+  const [playedTrackIndices, setPlayedTrackIndices] = useState<Set<number>>(new Set())
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const zoneRefs = useRef<Map<string, DOMRect>>(new Map())
   const playerRef = useRef<any>(null)
@@ -151,8 +153,11 @@ export function GameClient({ accessToken }: GameClientProps) {
   }
 
   const generateNextQuestion = async () => {
-    if (!questionGeneratorRef.current || questionIndex >= tracks.length) {
-      // Game over
+    if (!questionGeneratorRef.current) return
+
+    // Check if game is over
+    if (playedTrackIndices.size >= tracks.length) {
+      // All tracks played - game over
       setCurrentQuestion(null)
       setGameStarted(false)
       setGameCompleted(true)
@@ -164,8 +169,34 @@ export function GameClient({ accessToken }: GameClientProps) {
       return
     }
 
-    const track = tracks[questionIndex]
-    const question = await questionGeneratorRef.current.generateQuestion(track, questionIndex)
+    // Get next track index
+    let trackIndex: number
+    if (shuffleMode) {
+      // Pick random unplayed track
+      const unplayedIndices = tracks
+        .map((_, i) => i)
+        .filter(i => !playedTrackIndices.has(i))
+      trackIndex = unplayedIndices[Math.floor(Math.random() * unplayedIndices.length)]
+    } else {
+      // Sequential mode
+      trackIndex = questionIndex
+      if (playedTrackIndices.has(trackIndex)) {
+        // Already played this track, game should be over
+        setCurrentQuestion(null)
+        setGameStarted(false)
+        setGameCompleted(true)
+        if (playerRef.current) {
+          playerRef.current.pause()
+        }
+        return
+      }
+    }
+
+    // Mark track as played
+    setPlayedTrackIndices(prev => new Set([...prev, trackIndex]))
+
+    const track = tracks[trackIndex]
+    const question = await questionGeneratorRef.current.generateQuestion(track, trackIndex)
     setCurrentQuestion(question)
     setAnsweredCorrectly(false)
     setBuzzedTeam(null)
@@ -314,6 +345,7 @@ export function GameClient({ accessToken }: GameClientProps) {
     setGameCompleted(false)
     setCurrentQuestion(null)
     setAnsweredCorrectly(false)
+    setPlayedTrackIndices(new Set())
 
     // Reset all team scores to 0
     teams.forEach(team => {
@@ -470,6 +502,31 @@ export function GameClient({ accessToken }: GameClientProps) {
 
           {!loading && !gameStarted && !gameCompleted && tracks.length > 0 && (
             <div className="pointer-events-auto">
+              <div className="mb-6 bg-gray-800 p-4 rounded-xl">
+                <div className="text-white text-lg mb-3 text-center">Play Order</div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShuffleMode(true)}
+                    className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors ${
+                      shuffleMode
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    🔀 Shuffle
+                  </button>
+                  <button
+                    onClick={() => setShuffleMode(false)}
+                    className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors ${
+                      !shuffleMode
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    📋 In Order
+                  </button>
+                </div>
+              </div>
               <button
                 onClick={handleStartGame}
                 className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-12 rounded-full text-2xl transition-colors w-full"
@@ -644,7 +701,7 @@ export function GameClient({ accessToken }: GameClientProps) {
               )}
 
               <TwofoldText className="text-gray-400 text-sm">
-                Question {questionIndex + 1} of {tracks.length}
+                Question {playedTrackIndices.size} of {tracks.length}
               </TwofoldText>
             </div>
           )}
