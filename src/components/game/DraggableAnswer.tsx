@@ -120,7 +120,7 @@ export function DraggableAnswer({ answer, onDragEnd, isAnswered, teamId, isRotat
     <div
       ref={elementRef}
       className={`
-        relative bg-white text-black p-6 rounded-xl font-bold text-xl
+        relative bg-white text-black p-3 sm:p-6 rounded-xl font-bold text-sm sm:text-xl
         cursor-grab active:cursor-grabbing select-none
         transition-transform shadow-lg
         ${isDragging ? 'scale-110 shadow-2xl z-[9999]' : ''}

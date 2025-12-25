@@ -29,6 +29,8 @@ interface GameState {
   playlist: SpotifyPlaylist | null
   teams: Team[]
   touchZones: TouchZone[]
+  spotifyDeviceId: string | null
+  spotifyDeviceName: string | null
 
   // Game state
   currentQuestion: GameQuestion | null
@@ -40,6 +42,7 @@ interface GameState {
   setPlaylist: (playlist: SpotifyPlaylist) => void
   setTeams: (teams: Team[]) => void
   setupTouchZones: () => void
+  setSpotifyDevice: (deviceId: string, deviceName: string) => void
   startGame: () => void
   nextQuestion: () => void
   updateScore: (teamId: string, points: number) => void
@@ -82,6 +85,8 @@ export const useGameStore = create<GameState>()(
       playlist: null,
       teams: [],
       touchZones: [],
+      spotifyDeviceId: null,
+      spotifyDeviceName: null,
       currentQuestion: null,
       currentTrackIndex: 0,
       gameStarted: false,
@@ -91,6 +96,9 @@ export const useGameStore = create<GameState>()(
       setPlaylist: (playlist) => set({ playlist }),
 
       setTeams: (teams) => set({ teams }),
+
+      setSpotifyDevice: (deviceId, deviceName) =>
+        set({ spotifyDeviceId: deviceId, spotifyDeviceName: deviceName }),
 
       setupTouchZones: () => {
         const { teams } = get()

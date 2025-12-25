@@ -49,4 +49,59 @@ export class SpotifyClient {
       .map((item) => item.track)
       .filter((track): track is SpotifyTrack => track !== null)
   }
+
+  async getPreviewUrls(trackIds: string[]): Promise<Map<string, string | null>> {
+    if (trackIds.length === 0) {
+      return new Map()
+    }
+
+    const resultMap = new Map<string, string | null>()
+    const BATCH_SIZE = 50 // API route allows max 50 tracks per request
+
+    try {
+      // Split into batches of 50
+      const batches: string[][] = []
+      for (let i = 0; i < trackIds.length; i += BATCH_SIZE) {
+        batches.push(trackIds.slice(i, i + BATCH_SIZE))
+      }
+
+      console.log(`📦 Processing ${trackIds.length} tracks in ${batches.length} batch(es)`)
+
+      // Process all batches in parallel
+      const batchPromises = batches.map(async (batch) => {
+        const idsParam = batch.join(',')
+        const response = await fetch(`/api/spotify/preview?trackIds=${idsParam}`)
+
+        if (!response.ok) {
+          console.error(`Failed to fetch preview URLs for batch: ${response.status}`)
+          return new Map()
+        }
+
+        const data = await response.json()
+        const batchMap = new Map<string, string | null>()
+
+        for (const [trackId, result] of Object.entries(data.previews)) {
+          batchMap.set(trackId, (result as any).preview_url)
+        }
+
+        return batchMap
+      })
+
+      // Wait for all batches to complete
+      const batchResults = await Promise.all(batchPromises)
+
+      // Merge all results
+      for (const batchMap of batchResults) {
+        for (const [trackId, previewUrl] of batchMap.entries()) {
+          resultMap.set(trackId, previewUrl)
+        }
+      }
+
+      console.log(`✅ Processed ${resultMap.size} tracks`)
+      return resultMap
+    } catch (error) {
+      console.error('Error fetching preview URLs:', error)
+      return resultMap // Return whatever we got so far
+    }
+  }
 }
