@@ -9,6 +9,7 @@ const SPOTIFY_SCOPES = [
   'streaming',
   'user-modify-playback-state',
   'user-read-playback-state',
+  'user-top-read', // For accessing user's top tracks
 ].join(' ')
 
 export const authOptions: NextAuthOptions = {

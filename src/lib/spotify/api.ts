@@ -65,15 +65,16 @@ export class SpotifyClient {
         batches.push(trackIds.slice(i, i + BATCH_SIZE))
       }
 
-      console.log(`📦 Processing ${trackIds.length} tracks in ${batches.length} batch(es)`)
-
       // Process all batches in parallel
       const batchPromises = batches.map(async (batch) => {
         const idsParam = batch.join(',')
-        const response = await fetch(`/api/spotify/preview?trackIds=${idsParam}`)
+        const response = await fetch(`/api/spotify/preview?trackIds=${idsParam}`, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+          },
+        })
 
         if (!response.ok) {
-          console.error(`Failed to fetch preview URLs for batch: ${response.status}`)
           return new Map()
         }
 
@@ -97,10 +98,8 @@ export class SpotifyClient {
         }
       }
 
-      console.log(`✅ Processed ${resultMap.size} tracks`)
       return resultMap
     } catch (error) {
-      console.error('Error fetching preview URLs:', error)
       return resultMap // Return whatever we got so far
     }
   }

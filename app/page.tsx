@@ -14,9 +14,9 @@ export default function Home() {
   }
 
   if (session) {
-    // Redirect to setup on client side
+    // Redirect to test-audio on client side
     if (typeof window !== 'undefined') {
-      window.location.href = '/setup'
+      window.location.href = '/test-audio'
     }
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
