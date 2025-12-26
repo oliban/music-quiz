@@ -349,11 +349,15 @@ export function GameClient({ accessToken }: GameClientProps) {
 
         // Check if all teams are now disqualified
         if (newDisqualified.size === teams.length) {
-          console.log('All teams disqualified - showing album art and advancing')
+          console.log('All teams disqualified - playing buzzer and showing album art')
 
           // Play wrong answer buzzer sound only when all teams got it wrong
           const wrongBuzzer = new Audio('/sounds/buzzer.mp3')
-          wrongBuzzer.play().catch(err => console.warn('Wrong answer buzzer failed:', err))
+          wrongBuzzer.volume = 1.0
+          wrongBuzzer.load()
+          wrongBuzzer.play()
+            .then(() => console.log('✅ Buzzer played successfully'))
+            .catch(err => console.error('❌ Buzzer play failed:', err))
 
           setShowAlbumArt(true)
           const albumArtDelay = 3000  // Universal delay
@@ -521,12 +525,22 @@ export function GameClient({ accessToken }: GameClientProps) {
     // No points awarded
     hasAnswerRef.current = true
     const team = teams.find(t => t.id === buzzedTeam)
-    console.log(`${team?.name} got it wrong - no points awarded`)
+    console.log(`${team?.name} got it wrong - playing buzzer sound`)
 
-    // Clear buzzer and advance immediately to next question
+    // Play wrong answer buzzer sound
+    const wrongBuzzer = new Audio('/sounds/buzzer.mp3')
+    wrongBuzzer.volume = 1.0
+    wrongBuzzer.load()
+    wrongBuzzer.play()
+      .then(() => console.log('✅ Buzzer played successfully'))
+      .catch(err => console.error('❌ Buzzer play failed:', err))
+
+    // Clear buzzer and advance after 1.5 second delay
     setBuzzedTeam(null)
     setShowAnswerPrompt(false)
-    handleNextQuestion()
+    setTimeout(() => {
+      handleNextQuestion()
+    }, 1500)
   }
 
   const handleNoAnswerContinue = () => {
@@ -739,18 +753,39 @@ export function GameClient({ accessToken }: GameClientProps) {
               <>
                 {/* Play/Pause button - hidden when showing answer dialogs */}
                 {!showAnswerPrompt && !showAlbumArt && !showNoAnswerDialog && (
-                  <div className={`absolute top-4 ${teams.length === 6 ? 'left-40' : 'left-4'}`}>
-                    <button
-                      onClick={isPlaying ? handleStopAudio : handlePlayAudio}
-                      className={`${
-                        isPlaying
-                          ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
-                          : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
-                      } text-white font-bold py-3 px-6 rounded-full transition-colors touch-manipulation shadow-lg`}
-                    >
-                      {isPlaying ? '🎵 Playing...' : '⏸️ Paused'}
-                    </button>
-                  </div>
+                  <>
+                    <div className={`absolute top-4 ${teams.length === 6 ? 'left-40' : 'left-4'}`}>
+                      <button
+                        onClick={isPlaying ? handleStopAudio : handlePlayAudio}
+                        className={`${
+                          isPlaying
+                            ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
+                            : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
+                        } text-white font-bold py-3 px-6 rounded-full transition-colors touch-manipulation shadow-lg`}
+                      >
+                        {isPlaying ? '🎵 Playing...' : '⏸️ Paused'}
+                      </button>
+                    </div>
+
+                    {/* Question text in neutral middle area - two versions */}
+                    {currentQuestion && (
+                      <>
+                        {/* Upper team question - rotated 180° */}
+                        <div className="absolute top-2 sm:top-4 left-0 right-0 px-4 pointer-events-none">
+                          <div className="text-base sm:text-2xl text-yellow-400 font-bold text-center max-w-4xl mx-auto rotate-180" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                            {currentQuestion.question}
+                          </div>
+                        </div>
+
+                        {/* Lower team question - normal orientation */}
+                        <div className="absolute bottom-2 sm:bottom-4 left-0 right-0 px-4 pointer-events-none">
+                          <div className="text-base sm:text-2xl text-yellow-400 font-bold text-center max-w-4xl mx-auto" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                            {currentQuestion.question}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
 
                 {/* Album art when answer is revealed - covers entire screen with black background, rotated 90 degrees */}
@@ -781,49 +816,53 @@ export function GameClient({ accessToken }: GameClientProps) {
                 {/* Stage 2: Combined Album Art + Answer Verification - covers entire screen with black background, rotated 90 degrees */}
                 {currentQuestion.type === 'buzz-in' && buzzedTeam && showAnswerPrompt && (
                   <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center">
-                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex flex-col items-center justify-center gap-3 sm:gap-4">
-                      <AlbumArtDisplay track={currentQuestion.track} />
-
-                      {/* Answer Verification Prompt - Compact */}
-                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-xs sm:max-w-md w-full shadow-2xl border-2 border-white/30 backdrop-blur-sm">
-                        <div className="text-base sm:text-xl font-bold text-white mb-3 sm:mb-4 text-center">
+                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex items-center gap-8">
+                      {/* Answer Verification Prompt - Left side, narrower */}
+                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-[200px] shadow-2xl border-2 border-white/30 backdrop-blur-sm flex-shrink-0">
+                        <div className="text-base sm:text-lg font-bold text-white mb-3 text-center">
                           Did {teams.find(t => t.id === buzzedTeam)?.name} get the question right?
                         </div>
-                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                        <div className="flex flex-col gap-2">
                           <button
                             onClick={handleBuzzCorrect}
-                            className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-2 px-3 sm:py-3 sm:px-4 rounded-full text-sm sm:text-base transition-colors touch-manipulation"
+                            className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-6 rounded-full text-lg sm:text-xl transition-colors touch-manipulation"
                           >
                             ✓ Yes
                           </button>
                           <button
                             onClick={handleBuzzIncorrect}
-                            className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-2 px-3 sm:py-3 sm:px-4 rounded-full text-sm sm:text-base transition-colors touch-manipulation"
+                            className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-lg sm:text-xl transition-colors touch-manipulation"
                           >
                             ✗ No
                           </button>
                         </div>
                       </div>
+
+                      {/* Album art with track info - Right side */}
+                      <AlbumArtDisplay track={currentQuestion.track} />
                     </div>
                   </div>
                 )}
 
-                {/* No answer dialog - covers entire screen with black background */}
+                {/* No answer dialog - covers entire screen with black background, rotated 90 degrees */}
                 {showNoAnswerDialog && (
-                  <div className="fixed inset-0 bg-black z-[150] flex flex-col items-center justify-center gap-3 sm:gap-4">
-                    <AlbumArtDisplay track={currentQuestion.track} />
-
-                    {/* No Answer Prompt - Compact */}
-                    <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-xs sm:max-w-md w-full shadow-2xl border-2 border-white/30 backdrop-blur-sm">
-                      <div className="text-base sm:text-xl font-bold text-white mb-3 sm:mb-4 text-center">
-                        Time's up! No one answered.
+                  <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center">
+                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex items-center gap-8">
+                      {/* No Answer Prompt - Left side, narrower */}
+                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-[200px] shadow-2xl border-2 border-white/30 backdrop-blur-sm flex-shrink-0">
+                        <div className="text-base sm:text-lg font-bold text-white mb-3 text-center">
+                          Time's up! No one answered.
+                        </div>
+                        <button
+                          onClick={handleNoAnswerContinue}
+                          className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-4 px-6 rounded-full text-lg sm:text-xl transition-colors touch-manipulation"
+                        >
+                          Continue
+                        </button>
                       </div>
-                      <button
-                        onClick={handleNoAnswerContinue}
-                        className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-2 px-3 sm:py-3 sm:px-6 rounded-full text-sm sm:text-base transition-colors touch-manipulation"
-                      >
-                        Continue
-                      </button>
+
+                      {/* Album art with track info - Right side */}
+                      <AlbumArtDisplay track={currentQuestion.track} />
                     </div>
                   </div>
                 )}

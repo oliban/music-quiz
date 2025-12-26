@@ -15,8 +15,8 @@ interface TouchZonesProps {
 }
 
 const ZONE_STYLES: Record<TouchZone['position'], string> = {
-  'center-top': 'top-0 left-1/2 -translate-x-1/2',
-  'center-bottom': 'bottom-0 left-1/2 -translate-x-1/2',
+  'center-top': 'top-4 sm:top-6 left-1/2 -translate-x-1/2',
+  'center-bottom': 'bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2',
 }
 
 const ZONE_ROTATIONS: Record<TouchZone['position'], string> = {
@@ -78,16 +78,20 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
             key={zone.id}
             onTouchStart={() => handleTouchStart(zone.id)}
             onClick={() => handleTouchStart(zone.id)}
-            className={`absolute w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-lg border-2 sm:border-4 transition-all active:scale-95 z-[100] ${ZONE_STYLES[zone.position]} ${ZONE_ROTATIONS[zone.position]} ${
+            className={`absolute w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-4 sm:border-6 transition-all active:scale-95 active:shadow-inner z-[100] ${ZONE_STYLES[zone.position]} ${ZONE_ROTATIONS[zone.position]} ${
               isDisqualified
                 ? 'border-red-500 opacity-50'
                 : isCelebrating
-                ? 'border-yellow-400 border-4 sm:border-8 animate-pulse scale-110 shadow-2xl'
-                : 'border-white/20'
+                ? 'border-yellow-400 border-6 sm:border-8 animate-pulse scale-110'
+                : 'border-white/30'
             }`}
             style={{
-              backgroundColor: zone.color,
-              boxShadow: isCelebrating ? `0 0 40px ${zone.color}, 0 0 80px ${zone.color}` : undefined
+              background: isCelebrating
+                ? zone.color
+                : `linear-gradient(135deg, ${zone.color} 0%, ${zone.color}dd 50%, ${zone.color}99 100%)`,
+              boxShadow: isCelebrating
+                ? `0 0 40px ${zone.color}, 0 0 80px ${zone.color}, 0 20px 40px rgba(0,0,0,0.5)`
+                : '0 8px 16px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.3)'
             }}
           >
             {/* Score display */}
