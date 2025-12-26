@@ -886,15 +886,15 @@ export function GameClient({ accessToken }: GameClientProps) {
                 {/* No answer dialog - covers entire screen with black background, rotated 90 degrees */}
                 {showNoAnswerDialog && (
                   <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center">
-                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex items-center gap-8">
-                      {/* No Answer Prompt - Left side, narrower */}
-                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-[200px] shadow-2xl border-2 border-white/30 backdrop-blur-sm flex-shrink-0">
-                        <div className="text-base sm:text-lg font-bold text-white mb-3 text-center">
+                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex items-center gap-8 -mt-24 sm:-mt-32 md:-mt-40">
+                      {/* No Answer Prompt - Left side */}
+                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 shadow-2xl border-2 border-white/30 backdrop-blur-sm flex-shrink-0 flex flex-col justify-center gap-3">
+                        <div className="text-base sm:text-lg font-bold text-white text-center">
                           Time's up! No one answered.
                         </div>
                         <button
                           onClick={handleNoAnswerContinue}
-                          className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-4 px-6 rounded-full text-lg sm:text-xl transition-colors touch-manipulation"
+                          className="bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-6 px-8 rounded-full text-2xl sm:text-3xl transition-colors touch-manipulation"
                         >
                           Continue
                         </button>

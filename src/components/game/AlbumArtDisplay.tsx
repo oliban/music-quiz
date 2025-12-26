@@ -12,7 +12,7 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
   const albumImage = track.album.images[0]?.url
 
   return (
-    <div className="flex flex-row items-center justify-center gap-6 sm:gap-8 animate-fadeIn pl-2 pr-8 sm:pl-4 sm:pr-12 py-8">
+    <div className="flex flex-row items-center justify-center gap-6 sm:gap-8 animate-fadeIn pl-2 pr-8 sm:pl-4 sm:pr-12 py-8 min-w-[500px] sm:min-w-[600px]">
       {/* Album art - HERO SIZE with dramatic effects */}
       {albumImage ? (
         <div className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 flex-shrink-0">
