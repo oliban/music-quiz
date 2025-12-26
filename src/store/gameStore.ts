@@ -13,7 +13,7 @@ export interface Team {
 export interface TouchZone {
   id: string
   teamId: string
-  position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center-top' | 'center-bottom' | 'left-middle' | 'right-middle'
+  position: 'center-top' | 'center-bottom'
   color: string
 }
 
@@ -31,8 +31,6 @@ interface GameState {
   playlist: SpotifyPlaylist | null
   teams: Team[]
   touchZones: TouchZone[]
-  spotifyDeviceId: string | null
-  spotifyDeviceName: string | null
 
   // Game state
   currentQuestion: GameQuestion | null
@@ -44,7 +42,6 @@ interface GameState {
   setPlaylist: (playlist: SpotifyPlaylist) => void
   setTeams: (teams: Team[]) => void
   setupTouchZones: () => void
-  setSpotifyDevice: (deviceId: string, deviceName: string) => void
   startGame: () => void
   nextQuestion: () => void
   updateScore: (teamId: string, points: number) => void
@@ -54,30 +51,10 @@ interface GameState {
 const TEAM_COLORS = [
   '#3B82F6', // blue
   '#EF4444', // red
-  '#10B981', // green
-  '#F59E0B', // yellow
-  '#8B5CF6', // purple
-  '#EC4899', // pink
-  '#14B8A6', // teal
 ]
 
-const getZonePositions = (teamCount: number): TouchZone['position'][] => {
-  switch (teamCount) {
-    case 2:
-      return ['center-top', 'center-bottom']
-    case 3:
-      return ['top-left', 'top-right', 'center-bottom']
-    case 4:
-      return ['top-left', 'top-right', 'bottom-left', 'bottom-right']
-    case 5:
-      return ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center-bottom']
-    case 6:
-      return ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'left-middle', 'right-middle']
-    case 7:
-      return ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'left-middle', 'right-middle', 'center-bottom']
-    default:
-      return []
-  }
+const getZonePositions = (): TouchZone['position'][] => {
+  return ['center-top', 'center-bottom']
 }
 
 export const useGameStore = create<GameState>()(
@@ -87,8 +64,6 @@ export const useGameStore = create<GameState>()(
       playlist: null,
       teams: [],
       touchZones: [],
-      spotifyDeviceId: null,
-      spotifyDeviceName: null,
       currentQuestion: null,
       currentTrackIndex: 0,
       gameStarted: false,
@@ -99,12 +74,9 @@ export const useGameStore = create<GameState>()(
 
       setTeams: (teams) => set({ teams }),
 
-      setSpotifyDevice: (deviceId, deviceName) =>
-        set({ spotifyDeviceId: deviceId, spotifyDeviceName: deviceName }),
-
       setupTouchZones: () => {
         const { teams } = get()
-        const positions = getZonePositions(teams.length)
+        const positions = getZonePositions()
 
         const zones: TouchZone[] = teams.map((team, index) => ({
           id: `zone-${team.id}`,
@@ -146,6 +118,36 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'music-quiz-game',
+      onRehydrateStorage: () => (state) => {
+        // Migration: Reset state if old version had more than 2 teams
+        if (state && state.teams.length !== 2 && state.teams.length > 0) {
+          console.log('Migrating: Resetting state due to team count change')
+          state.teams = []
+          state.touchZones = []
+          state.playlist = null
+          state.gameStarted = false
+          state.currentQuestion = null
+          state.currentTrackIndex = 0
+        }
+
+        // Migration: Update old color-based buzzer sound file paths to new descriptive names
+        if (state && state.teams.length > 0) {
+          const buzzerMigrationMap: Record<string, string> = {
+            '/sounds/buzzer-blue.mp3': '/sounds/buzzer-1.mp3',
+            '/sounds/buzzer-red.mp3': '/sounds/buzzer-2.mp3',
+            '/sounds/buzzer-teal.mp3': '/sounds/buzzer-bell.mp3',
+            '/sounds/buzzer-pink.mp3': '/sounds/buzzer-gameshow.mp3',
+            '/sounds/buzzer-green.mp3': '/sounds/buzzer-horn.mp3',
+            '/sounds/buzzer-purple.mp3': '/sounds/buzzer-ding.mp3',
+            '/sounds/buzzer-yellow.mp3': '/sounds/buzzer-beep.mp3',
+          }
+
+          state.teams = state.teams.map(team => ({
+            ...team,
+            buzzerSound: buzzerMigrationMap[team.buzzerSound] || team.buzzerSound
+          }))
+        }
+      },
     }
   )
 )

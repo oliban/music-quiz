@@ -1,34 +1,34 @@
 # Music Quiz Game
 
-A multiplayer music quiz game powered by Spotify. Players compete by identifying songs from their Spotify playlists in a fast-paced, interactive game designed for tablets and touch devices.
+A 2-team music quiz game powered by Spotify. Teams compete by identifying songs from their Spotify playlists in a fast-paced, interactive game designed for tablets and touch devices.
 
 ## Features
 
-- **Spotify Integration**: Full song playback using Spotify Web Playback SDK (requires Premium)
+- **Spotify Integration**: 30-second preview playback using HTML5 Audio (works with Free and Premium)
 - **Multiple Question Types**:
   - 🎯 **Buzz-In**: Name that tune - first team to buzz in gets to answer
-  - 🎲 **Drag-to-Corner**: Multiple choice - drag the correct answer to your team's corner
-- **Multiplayer Touch Interface**: 2-7 teams play on a single device
-- **Touch Zones**: Each team has a corner zone for buzzing in or submitting answers
+  - 🎲 **Multiple Choice**: Tap the correct answer from the options shown
+- **2-Team Touch Interface**: Two teams play on a single device
+- **Touch Zones**: Each team has a top or bottom zone for buzzing in and submitting answers
 - **Real-time Scoring**: Live score tracking throughout the game
 - **Playlist Search**: Browse and select any of your Spotify playlists
-- **Team Customization**: Name your teams and assign colors
+- **Team Customization**: Name your teams, assign colors, and choose buzzer sounds with preview
 - **Game State Persistence**: Continue previous games or start fresh
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
+- **Framework**: Next.js 16 (App Router with Turbopack)
 - **Authentication**: NextAuth.js with Spotify OAuth
 - **State Management**: Zustand with persistence
 - **Styling**: Tailwind CSS
-- **Audio**: Spotify Web Playback SDK
+- **Audio**: HTML5 Audio (30-second previews from Spotify)
 - **Testing**: Vitest + Playwright
 - **Type Safety**: TypeScript
 
 ## Prerequisites
 
 - Node.js 18+ and npm
-- Spotify Premium account (required for Web Playback SDK)
+- Spotify account (Free or Premium)
 - Spotify Developer App credentials
 
 ## Setup
@@ -125,17 +125,17 @@ Now access the game from any device using the ngrok URL!
 
 1. **Login**: Authenticate with your Spotify account
 2. **Select Playlist**: Search and choose a Spotify playlist for the quiz
-3. **Configure Teams**: Set number of teams (2-7) and customize names
-4. **Position Players**: Each team sits around one corner of the device
+3. **Configure Teams**: Name your 2 teams, assign colors, and choose buzzer sounds (with preview)
+4. **Position Players**: One team at the top, one team at the bottom of the device
 
 ### Game Phase
 
-1. **Audio Plays**: 30 seconds of the song (full track, not preview)
+1. **Audio Plays**: 30-second preview of the song
 2. **Question Types**:
-   - **Buzz-In**: Touch your team's corner to buzz in, then verbally answer. Host judges if correct.
-   - **Drag-to-Corner**: Drag the correct answer from the center to your team's corner
+   - **Buzz-In**: Touch your team's zone to buzz in, then verbally answer. Host judges if correct.
+   - **Multiple Choice**: Tap the correct answer from the options shown in your team's zone
 3. **Scoring**: 100 points per correct answer
-4. **Disqualification**: Teams that answer incorrectly on drag-to-corner questions can't try again
+4. **Disqualification**: Teams that answer incorrectly on multiple choice questions can't try again
 5. **Game End**: Final scores displayed with winner announcement
 
 ### Controls
@@ -148,19 +148,22 @@ Now access the game from any device using the ngrok URL!
 ## Touch Zone Layout
 
 ```
-┌─────────────────────┐
-│  Team 1   │  Team 2 │
-│           │         │
-├───────────┼─────────┤
-│  Answers  │         │
-│  & Score  │         │
-├───────────┼─────────┤
-│  Team 3   │  Team 4 │
-│           │         │
-└─────────────────────┘
+┌──────────────────────────┐
+│      Team 1 Zone         │
+│   (Top - 35% height)     │
+│  Buzz button + Answers   │
+├──────────────────────────┤
+│      Album Art &         │
+│    Question Display      │
+│   (Center - 30%)         │
+├──────────────────────────┤
+│      Team 2 Zone         │
+│  (Bottom - 35% height)   │
+│  Buzz button + Answers   │
+└──────────────────────────┘
 ```
 
-Each corner is a touch zone for that team. The center displays questions, answers, and scores (readable from both orientations).
+Each team has a dedicated zone (top or bottom) for buzzing in and viewing their answer options. The center displays the album art and question text. The top team's view is rotated 180° so both teams can read comfortably from opposite sides of the device.
 
 ## Development
 
@@ -203,10 +206,11 @@ music-game/
 
 ### No Audio Playing
 
-- Ensure you have **Spotify Premium** (required for Web Playback SDK)
+- Check that your playlist contains tracks with available preview URLs
+- Some tracks may not have 30-second previews available
 - Check browser console for playback errors
 - Try logging out and re-authenticating
-- Verify token scopes in auth configuration
+- Verify browser allows audio autoplay (may need to click play button first)
 
 ### OAuth Errors
 

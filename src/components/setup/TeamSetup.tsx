@@ -7,21 +7,11 @@ import type { Team } from '@/src/store/gameStore'
 const TEAM_COLORS = [
   '#3B82F6', // blue
   '#EF4444', // red
-  '#10B981', // green
-  '#F59E0B', // yellow
-  '#8B5CF6', // purple
-  '#EC4899', // pink
-  '#14B8A6', // teal
 ]
 
 const BUZZER_SOUNDS = [
-  { label: 'Blue Buzzer', value: '/sounds/buzzer-blue.mp3' },
-  { label: 'Red Buzzer', value: '/sounds/buzzer-red.mp3' },
-  { label: 'Green Buzzer', value: '/sounds/buzzer-green.mp3' },
-  { label: 'Yellow Buzzer', value: '/sounds/buzzer-yellow.mp3' },
-  { label: 'Purple Buzzer', value: '/sounds/buzzer-purple.mp3' },
-  { label: 'Pink Buzzer', value: '/sounds/buzzer-pink.mp3' },
-  { label: 'Teal Buzzer', value: '/sounds/buzzer-teal.mp3' },
+  { label: 'Buzzer 1', value: '/sounds/buzzer-1.mp3' },
+  { label: 'Buzzer 2', value: '/sounds/buzzer-2.mp3' },
 ]
 
 interface TeamSetupProps {
@@ -29,27 +19,13 @@ interface TeamSetupProps {
 }
 
 export function TeamSetup({ onComplete }: TeamSetupProps) {
-  const [teamCount, setTeamCount] = useState(4)
-  const [teamNames, setTeamNames] = useState<string[]>(
-    Array(4).fill('').map((_, i) => `Team ${i + 1}`)
-  )
-  const [teamSounds, setTeamSounds] = useState<string[]>(
-    Array(4).fill('').map((_, i) => BUZZER_SOUNDS[i]?.value || BUZZER_SOUNDS[0].value)
-  )
+  const [teamNames, setTeamNames] = useState<string[]>(['Team 1', 'Team 2'])
+  const [teamSounds, setTeamSounds] = useState<string[]>([
+    BUZZER_SOUNDS[0].value,
+    BUZZER_SOUNDS[1].value
+  ])
   const setTeams = useGameStore((state) => state.setTeams)
   const setupTouchZones = useGameStore((state) => state.setupTouchZones)
-
-  const handleTeamCountChange = (count: number) => {
-    setTeamCount(count)
-    const newNames = Array(count)
-      .fill('')
-      .map((_, i) => teamNames[i] || `Team ${i + 1}`)
-    setTeamNames(newNames)
-    const newSounds = Array(count)
-      .fill('')
-      .map((_, i) => teamSounds[i] || BUZZER_SOUNDS[i]?.value || BUZZER_SOUNDS[0].value)
-    setTeamSounds(newSounds)
-  }
 
   const handleTeamNameChange = (index: number, name: string) => {
     const newNames = [...teamNames]
@@ -61,6 +37,10 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
     const newSounds = [...teamSounds]
     newSounds[index] = sound
     setTeamSounds(newSounds)
+
+    // Auto-play preview with cache-busting
+    const audio = new Audio(`${sound}?v=${Date.now()}`)
+    audio.play().catch(err => console.warn('Sound preview failed:', err))
   }
 
   const handleComplete = () => {
@@ -80,25 +60,6 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
   return (
     <div className="max-w-2xl mx-auto p-8">
       <h2 className="text-3xl font-bold text-white mb-6">Team Setup</h2>
-
-      <div className="mb-8">
-        <label className="block text-white text-lg mb-4">Number of Teams (max 6)</label>
-        <div className="flex gap-2">
-          {[2, 3, 4, 5, 6].map((count) => (
-            <button
-              key={count}
-              onClick={() => handleTeamCountChange(count)}
-              className={`px-6 py-3 rounded-lg font-bold transition-colors ${
-                teamCount === count
-                  ? 'bg-green-500 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              {count}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="space-y-4 mb-8">
         {teamNames.map((name, index) => (

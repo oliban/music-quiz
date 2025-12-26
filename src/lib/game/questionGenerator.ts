@@ -1,6 +1,7 @@
 import type { SpotifyTrack } from '../spotify/types'
 import type { GameQuestion } from '@/src/store/gameStore'
 import { LastFmClient } from '../lastfm/api'
+import { deduplicateStrings, shuffleArray } from '../utils/deduplication'
 
 export interface QuestionGeneratorOptions {
   tracks: SpotifyTrack[]
@@ -232,7 +233,7 @@ export class QuestionGenerator {
       return this.generateDragToCornerQuestion(track)
     }
 
-    const options = this.shuffleArray([selected.correctAnswer, ...validatedWrongAnswers])
+    const options = shuffleArray([selected.correctAnswer, ...validatedWrongAnswers])
     const optionRevealDelays = this.generateOptionRevealDelays(options.length)
 
     return {
@@ -248,17 +249,9 @@ export class QuestionGenerator {
   private getRandomTrackNames(count: number, excludeId: string): string[] {
     // Filter out current track
     const otherTracks = this.tracks.filter((t) => t.id !== excludeId)
-
     // Deduplicate by name (case-insensitive)
-    const uniqueNames = new Map<string, string>()
-    otherTracks.forEach(track => {
-      const normalized = track.name.toLowerCase().trim()
-      if (!uniqueNames.has(normalized)) {
-        uniqueNames.set(normalized, track.name)
-      }
-    })
-
-    return this.getRandomItems(Array.from(uniqueNames.values()), count)
+    const uniqueNames = deduplicateStrings(otherTracks.map(t => t.name))
+    return this.getRandomItems(uniqueNames, count)
   }
 
   private getRandomArtists(count: number, excludeName?: string): string[] {
@@ -291,27 +284,14 @@ export class QuestionGenerator {
     )
 
     // Deduplicate wrong answers (case-insensitive)
-    const unique = Array.from(
-      new Map(
-        filtered.map(ans => [ans.toLowerCase().trim(), ans])
-      ).values()
-    )
+    const unique = deduplicateStrings(filtered)
 
     // Return null if insufficient unique answers
     return unique.length >= requiredCount ? unique.slice(0, requiredCount) : null
   }
 
   private getRandomItems<T>(array: T[], count: number): T[] {
-    const shuffled = [...array].sort(() => Math.random() - 0.5)
+    const shuffled = shuffleArray(array)
     return shuffled.slice(0, Math.min(count, array.length))
-  }
-
-  private shuffleArray<T>(array: T[]): T[] {
-    const shuffled = [...array]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    return shuffled
   }
 }

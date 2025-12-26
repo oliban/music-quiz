@@ -2,16 +2,15 @@
 
 This directory contains sound effects for team buzzers in the quiz game.
 
-## Required Sounds
+## Current Sounds
 
-You need 7 different buzzer sounds (one for each potential team color):
-1. `buzzer-blue.mp3` - For blue team
-2. `buzzer-red.mp3` - For red team
-3. `buzzer-green.mp3` - For green team
-4. `buzzer-yellow.mp3` - For yellow team
-5. `buzzer-purple.mp3` - For purple team
-6. `buzzer-pink.mp3` - For pink team
-7. `buzzer-teal.mp3` - For teal team
+The game includes 2 default buzzer sounds:
+1. `buzzer-1.mp3` - Default buzzer sound 1
+2. `buzzer-2.mp3` - Default buzzer sound 2
+
+## Adding More Buzzer Sounds (Optional)
+
+You can add more distinct buzzer sounds to give teams more options during setup. Each sound should be clearly distinguishable from the others.
 
 ## Where to Get Free Buzzer Sounds
 
@@ -41,10 +40,19 @@ You need 7 different buzzer sounds (one for each potential team color):
 
 ## How to Add Sounds:
 
-1. Download 7 different buzzer sounds from the sources above
-2. Rename them to match the filenames listed above
-3. Place them in this `public/sounds/` directory
-4. The game will automatically use them when teams press their buzzer buttons
+1. **Download distinct buzzer sounds** from the sources above (as many as you want)
+2. **Rename them descriptively** (e.g., `buzzer-bell.mp3`, `buzzer-horn.mp3`, `buzzer-ding.mp3`)
+3. **Place them** in this `public/sounds/` directory
+4. **Update** `src/components/setup/TeamSetup.tsx` to add them to the BUZZER_SOUNDS array:
+   ```typescript
+   const BUZZER_SOUNDS = [
+     { label: 'Buzzer 1', value: '/sounds/buzzer-1.mp3' },
+     { label: 'Buzzer 2', value: '/sounds/buzzer-2.mp3' },
+     { label: 'Bell', value: '/sounds/buzzer-bell.mp3' },      // Add your new sounds
+     { label: 'Horn', value: '/sounds/buzzer-horn.mp3' },      // like this
+   ]
+   ```
+5. **Restart the dev server** to see the new options in the team setup
 
 ## Sound Requirements:
 

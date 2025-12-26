@@ -1,6 +1,6 @@
 'use client'
 
-import { DraggableAnswer } from './DraggableAnswer'
+import { AnswerButton } from './AnswerButton'
 import type { Team, GameQuestion } from '@/src/store/gameStore'
 
 interface TeamZoneContentProps {
@@ -30,9 +30,6 @@ export function TeamZoneContent({
 }: TeamZoneContentProps) {
   if (!currentQuestion) return null
 
-  // Check if we're in 2-team mode
-  const is2TeamMode = teams.length === 2
-
   // Get the team for this zone (first team for upper zone, second for lower)
   const teamForZone = isRotated ? teams[0] : teams[1]
 
@@ -55,44 +52,23 @@ export function TeamZoneContent({
           </div>
         )}
 
-        {/* Multiple choice buttons */}
+        {/* Multiple choice buttons - Team-colored buttons with tap interaction */}
         {currentQuestion.type === 'drag-to-corner' && currentQuestion.options && (
-          <>
-            {is2TeamMode ? (
-              /* 2-Team Mode: Show team-colored buttons with tap interaction */
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-2 sm:mb-4 max-w-sm sm:max-w-md mx-auto">
-                {currentQuestion.options.map((option, index) => (
-                  <DraggableAnswer
-                    key={`team-${teamForZone?.id}-${index}`}
-                    answer={option}
-                    onDragEnd={(answer, x, y) => onAnswerDrag(answer, x, y, teamForZone?.id || '')}
-                    isAnswered={answeredCorrectly || thisTeamAnsweredWrong}
-                    isWrongAnswer={thisTeamAnsweredWrong && selectedWrongAnswer === option}
-                    teamId={teamForZone?.id}
-                    teamColor={teamForZone?.color}
-                    useTapMode={true}
-                    isRotated={isRotated}
-                    revealDelay={currentQuestion.optionRevealDelays?.[index] || 0}
-                  />
-                ))}
-              </div>
-            ) : (
-              /* Multi-Team Mode: Show shared white buttons with drag interaction */
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-2 sm:mb-4 max-w-sm sm:max-w-md mx-auto">
-                {currentQuestion.options.map((option, index) => (
-                  <DraggableAnswer
-                    key={`shared-${index}`}
-                    answer={option}
-                    onDragEnd={(answer, x, y) => onAnswerDrag(answer, x, y, '')}
-                    isAnswered={answeredCorrectly}
-                    teamId=""
-                    isRotated={isRotated}
-                    revealDelay={currentQuestion.optionRevealDelays?.[index] || 0}
-                  />
-                ))}
-              </div>
-            )}
-          </>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-2 sm:mb-4 max-w-sm sm:max-w-md mx-auto">
+            {currentQuestion.options.map((option, index) => (
+              <AnswerButton
+                key={`team-${teamForZone?.id}-${index}`}
+                answer={option}
+                onDragEnd={(answer, x, y) => onAnswerDrag(answer, x, y, teamForZone?.id || '')}
+                isAnswered={answeredCorrectly || thisTeamAnsweredWrong}
+                isWrongAnswer={thisTeamAnsweredWrong && selectedWrongAnswer === option}
+                teamId={teamForZone?.id}
+                teamColor={teamForZone?.color}
+                isRotated={isRotated}
+                revealDelay={currentQuestion.optionRevealDelays?.[index] || 0}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import type { SpotifyTrack } from '@/src/lib/spotify/types'
+import { TEXT_SHADOWS, BOX_SHADOWS } from '@/src/lib/styles/textShadows'
 
 interface AlbumArtDisplayProps {
   track: SpotifyTrack
@@ -19,14 +20,14 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
           alt={`${track.album.name} album art`}
           className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 rounded-2xl border-4 sm:border-8 border-yellow-400/20 flex-shrink-0"
           style={{
-            boxShadow: '0 30px 90px rgba(0,0,0,0.9), 0 0 120px rgba(251,191,36,0.3), 0 40px 120px rgba(0,0,0,0.6), 0 0 60px rgba(251,191,36,0.4)'
+            boxShadow: BOX_SHADOWS.albumArt
           }}
         />
       ) : (
         <div
           className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 bg-gray-800 rounded-2xl border-4 sm:border-8 border-yellow-400/20 flex items-center justify-center flex-shrink-0"
           style={{
-            boxShadow: '0 30px 90px rgba(0,0,0,0.9), 0 0 120px rgba(251,191,36,0.3), 0 40px 120px rgba(0,0,0,0.6)'
+            boxShadow: BOX_SHADOWS.albumArtFallback
           }}
         >
           <span className="text-gray-400 text-8xl sm:text-9xl">🎵</span>
@@ -39,7 +40,7 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
         <div
           className="text-2xl sm:text-3xl md:text-5xl font-black text-yellow-400 mb-2 sm:mb-4 leading-tight"
           style={{
-            textShadow: '0 6px 30px rgba(0,0,0,1), 0 0 60px rgba(251,191,36,0.6), 0 3px 6px rgba(0,0,0,1)'
+            textShadow: TEXT_SHADOWS.hero
           }}
         >
           {track.name}
@@ -49,7 +50,7 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
         <div
           className="text-lg sm:text-xl md:text-3xl font-bold text-white mb-1 sm:mb-2"
           style={{
-            textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)'
+            textShadow: TEXT_SHADOWS.prominent
           }}
         >
           {track.artists.map(a => a.name).join(', ')}
@@ -59,7 +60,7 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
         <div
           className="text-base sm:text-lg md:text-xl font-semibold text-gray-300"
           style={{
-            textShadow: '0 2px 8px rgba(0,0,0,0.8)'
+            textShadow: TEXT_SHADOWS.standard
           }}
         >
           {track.album.name}

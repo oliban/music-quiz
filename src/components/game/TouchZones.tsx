@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { TouchZone, Team } from '@/src/store/gameStore'
+import { TEXT_SHADOWS } from '@/src/lib/styles/textShadows'
 
 interface TouchZonesProps {
   zones: TouchZone[]
@@ -9,57 +10,23 @@ interface TouchZonesProps {
   disqualifiedTeams: Set<string>
   celebratingTeam: string | null
   onZoneTouch: (zoneId: string) => void
-  onZoneMount?: (zoneId: string, rect: DOMRect) => void
   currentQuestionType?: 'buzz-in' | 'drag-to-corner' | null
   buzzedTeam?: string | null
 }
 
 const ZONE_STYLES: Record<TouchZone['position'], string> = {
-  'top-left': 'top-0 left-0',
-  'top-right': 'top-0 right-0',
-  'bottom-left': 'bottom-0 left-0',
-  'bottom-right': 'bottom-0 right-0',
   'center-top': 'top-0 left-1/2 -translate-x-1/2',
   'center-bottom': 'bottom-0 left-1/2 -translate-x-1/2',
-  'left-middle': 'top-1/2 left-0 -translate-y-1/2',
-  'right-middle': 'top-1/2 right-0 -translate-y-1/2',
 }
 
 const ZONE_ROTATIONS: Record<TouchZone['position'], string> = {
-  'top-left': 'rotate-180',
-  'top-right': 'rotate-180',
   'center-top': 'rotate-180',
-  'bottom-left': '',
-  'bottom-right': '',
   'center-bottom': '',
-  'left-middle': '-rotate-45',
-  'right-middle': 'rotate-45',
 }
 
-export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, onZoneTouch, onZoneMount, currentQuestionType, buzzedTeam }: TouchZonesProps) {
-  const zoneElementRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
+export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, onZoneTouch, currentQuestionType, buzzedTeam }: TouchZonesProps) {
   const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map())
   const soundLoadErrors = useRef<Set<string>>(new Set())
-
-  useEffect(() => {
-    if (onZoneMount) {
-      zoneElementRefs.current.forEach((element, zoneId) => {
-        const rect = element.getBoundingClientRect()
-        onZoneMount(zoneId, rect)
-      })
-
-      // Update on window resize
-      const handleResize = () => {
-        zoneElementRefs.current.forEach((element, zoneId) => {
-          const rect = element.getBoundingClientRect()
-          onZoneMount(zoneId, rect)
-        })
-      }
-
-      window.addEventListener('resize', handleResize)
-      return () => window.removeEventListener('resize', handleResize)
-    }
-  }, [zones, onZoneMount])
 
   const playBuzzerSound = (zone: TouchZone) => {
     const team = teams.find(t => t.id === zone.teamId)
@@ -109,11 +76,6 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
         return (
           <button
             key={zone.id}
-            ref={(el) => {
-              if (el) {
-                zoneElementRefs.current.set(zone.id, el)
-              }
-            }}
             onTouchStart={() => handleTouchStart(zone.id)}
             onClick={() => handleTouchStart(zone.id)}
             className={`absolute w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-lg border-2 sm:border-4 transition-all active:scale-95 z-[100] ${ZONE_STYLES[zone.position]} ${ZONE_ROTATIONS[zone.position]} ${
@@ -134,7 +96,7 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
                 <div
                   className="text-white text-3xl sm:text-4xl md:text-5xl font-bold"
                   style={{
-                    textShadow: '0 0 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.8), 2px 2px 4px rgba(0,0,0,1), -2px -2px 4px rgba(0,0,0,1)'
+                    textShadow: TEXT_SHADOWS.score
                   }}
                 >
                   {score}
@@ -146,7 +108,7 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
                 <div
                   className="text-white text-4xl sm:text-5xl md:text-6xl font-bold"
                   style={{
-                    textShadow: '0 0 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.8), 2px 2px 4px rgba(0,0,0,1), -2px -2px 4px rgba(0,0,0,1)'
+                    textShadow: TEXT_SHADOWS.score
                   }}
                 >
                   ✗
