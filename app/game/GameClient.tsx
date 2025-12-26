@@ -814,14 +814,22 @@ export function GameClient({ accessToken }: GameClientProps) {
                         {/* Upper team question - rotated 180° */}
                         <div className="absolute top-2 sm:top-4 left-0 right-0 px-4 pointer-events-none">
                           <div className="text-base sm:text-2xl text-yellow-400 font-bold text-center max-w-4xl mx-auto rotate-180" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
-                            {currentQuestion.question}
+                            {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
+                              /^(song|artist)$/i.test(part) ? (
+                                <span key={i} className="text-white animate-pulse" style={{ textShadow: '0 0 30px rgba(255,255,255,1), 0 0 60px rgba(255,255,255,0.8), 0 0 90px rgba(255,255,255,0.6), 0 0 120px rgba(255,255,255,0.4)' }}>{part}</span>
+                              ) : part
+                            )}
                           </div>
                         </div>
 
                         {/* Lower team question - normal orientation */}
                         <div className="absolute bottom-2 sm:bottom-4 left-0 right-0 px-4 pointer-events-none">
                           <div className="text-base sm:text-2xl text-yellow-400 font-bold text-center max-w-4xl mx-auto" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
-                            {currentQuestion.question}
+                            {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
+                              /^(song|artist)$/i.test(part) ? (
+                                <span key={i} className="text-white animate-pulse" style={{ textShadow: '0 0 30px rgba(255,255,255,1), 0 0 60px rgba(255,255,255,0.8), 0 0 90px rgba(255,255,255,0.6), 0 0 120px rgba(255,255,255,0.4)' }}>{part}</span>
+                              ) : part
+                            )}
                           </div>
                         </div>
                       </>
@@ -838,19 +846,23 @@ export function GameClient({ accessToken }: GameClientProps) {
                   </div>
                 )}
 
-                {/* Dialogs - visible from both sides */}
-                {/* Stage 1: Has the team answered? */}
+                {/* Stage 1: Has the team answered? - Black plate with rotated content */}
                 {currentQuestion.type === 'buzz-in' && buzzedTeam && !showAnswerPrompt && (
-                  <div className="bg-gray-800/95 p-3 sm:p-6 rounded-xl max-w-xs sm:max-w-md mx-auto shadow-2xl border-2 border-white/30 backdrop-blur-sm">
-                    <div className="text-base sm:text-2xl font-bold text-white mb-3 sm:mb-6 text-center">
-                      Has {teams.find(t => t.id === buzzedTeam)?.name} answered?
+                  <div className="absolute inset-0 flex items-center justify-center bg-black z-[100]">
+                    <div className="rotate-90 flex flex-col items-center gap-6 sm:gap-8">
+                      {/* Question text - constrained to neutral area width */}
+                      <div className="text-2xl sm:text-3xl md:text-4xl text-white font-bold text-center max-w-[250px] sm:max-w-[300px]" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                        Has {teams.find(t => t.id === buzzedTeam)?.name} answered?
+                      </div>
+
+                      {/* Yes button */}
+                      <button
+                        onClick={() => handleHasAnswered(true)}
+                        className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-6 px-12 sm:py-8 sm:px-16 rounded-full text-3xl sm:text-4xl transition-colors touch-manipulation shadow-2xl"
+                      >
+                        ✓ Yes
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleHasAnswered(true)}
-                      className="w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-2 px-4 sm:py-4 sm:px-8 rounded-full text-base sm:text-xl transition-colors touch-manipulation"
-                    >
-                      ✓ Yes
-                    </button>
                   </div>
                 )}
 
@@ -878,7 +890,11 @@ export function GameClient({ accessToken }: GameClientProps) {
                       </div>
 
                       {/* Album art with track info - Right side */}
-                      <AlbumArtDisplay track={currentQuestion.track} />
+                      <AlbumArtDisplay
+                        track={currentQuestion.track}
+                        highlightSong={currentQuestion.question.toLowerCase().includes('song')}
+                        highlightArtist={currentQuestion.question.toLowerCase().includes('artist')}
+                      />
                     </div>
                   </div>
                 )}
@@ -901,7 +917,11 @@ export function GameClient({ accessToken }: GameClientProps) {
                       </div>
 
                       {/* Album art with track info - Right side */}
-                      <AlbumArtDisplay track={currentQuestion.track} />
+                      <AlbumArtDisplay
+                        track={currentQuestion.track}
+                        highlightSong={currentQuestion.question.toLowerCase().includes('song')}
+                        highlightArtist={currentQuestion.question.toLowerCase().includes('artist')}
+                      />
                     </div>
                   </div>
                 )}

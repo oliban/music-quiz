@@ -5,9 +5,11 @@ import { TEXT_SHADOWS, BOX_SHADOWS } from '@/src/lib/styles/textShadows'
 
 interface AlbumArtDisplayProps {
   track: SpotifyTrack
+  highlightSong?: boolean
+  highlightArtist?: boolean
 }
 
-export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
+export function AlbumArtDisplay({ track, highlightSong = false, highlightArtist = false }: AlbumArtDisplayProps) {
   // Get the largest album image (usually first in array)
   const albumImage = track.album.images[0]?.url
 
@@ -41,9 +43,11 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
       <div className="text-left flex-1 min-w-0 max-w-none pr-4 sm:pr-8">
         {/* Song title - MASSIVE AND BOLD */}
         <div
-          className="text-3xl sm:text-4xl md:text-6xl font-black text-yellow-400 mb-2 sm:mb-3 leading-tight"
+          className={`text-3xl sm:text-4xl md:text-6xl font-black mb-2 sm:mb-3 leading-tight ${
+            highlightSong ? 'text-yellow-400 animate-pulse' : 'text-gray-400'
+          }`}
           style={{
-            textShadow: TEXT_SHADOWS.hero
+            textShadow: highlightSong ? '0 0 40px rgba(251,191,36,1), 0 0 80px rgba(251,191,36,0.8), 0 0 120px rgba(251,191,36,0.6), 0 6px 30px rgba(0,0,0,0.8)' : TEXT_SHADOWS.standard
           }}
         >
           {track.name}
@@ -51,9 +55,11 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
 
         {/* Artist - PROMINENT */}
         <div
-          className="text-xl sm:text-2xl md:text-4xl font-bold text-white mb-1 sm:mb-2"
+          className={`text-xl sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2 ${
+            highlightArtist ? 'text-yellow-400 animate-pulse' : 'text-gray-400'
+          }`}
           style={{
-            textShadow: TEXT_SHADOWS.prominent
+            textShadow: highlightArtist ? '0 0 40px rgba(251,191,36,1), 0 0 80px rgba(251,191,36,0.8), 0 0 120px rgba(251,191,36,0.6), 0 6px 30px rgba(0,0,0,0.8)' : TEXT_SHADOWS.standard
           }}
         >
           {track.artists.map(a => a.name).join(', ')}
