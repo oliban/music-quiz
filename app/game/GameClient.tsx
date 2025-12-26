@@ -436,6 +436,20 @@ export function GameClient({ accessToken }: GameClientProps) {
     setCelebratingTeam(teamId)
     setTimeout(() => setCelebratingTeam(null), 3000)
 
+    // Play random celebration sound
+    const celebrationSounds = [
+      '/sounds/crowd-cheers.mp3',
+      '/sounds/applause.mp3',
+      '/sounds/crowd-cheering.mp3',
+      '/sounds/fireworks.mp3',
+    ]
+    const randomSound = celebrationSounds[Math.floor(Math.random() * celebrationSounds.length)]
+    const celebrationAudio = new Audio(randomSound)
+    celebrationAudio.volume = 0.7
+    celebrationAudio.play()
+      .then(() => console.log('🎉 Celebration sound played:', randomSound))
+      .catch(err => console.warn('Celebration sound failed:', err))
+
     // Convert hex color to RGB for confetti
     const hex = team.color.replace('#', '')
     const r = parseInt(hex.substr(0, 2), 16)
