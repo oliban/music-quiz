@@ -15,8 +15,8 @@ interface TouchZonesProps {
 }
 
 const ZONE_STYLES: Record<TouchZone['position'], string> = {
-  'center-top': 'top-4 sm:top-6 left-1/2 -translate-x-1/2',
-  'center-bottom': 'bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2',
+  'center-top': 'top-[12%] left-1/2 -translate-x-1/2',
+  'center-bottom': 'bottom-[12%] left-1/2 -translate-x-1/2',
 }
 
 const ZONE_ROTATIONS: Record<TouchZone['position'], string> = {
