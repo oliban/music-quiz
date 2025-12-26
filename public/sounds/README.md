@@ -4,9 +4,17 @@ This directory contains sound effects for team buzzers in the quiz game.
 
 ## Current Sounds
 
-The game includes 2 default buzzer sounds:
-1. `buzzer-1.mp3` - Default buzzer sound 1
-2. `buzzer-2.mp3` - Default buzzer sound 2
+### Team Buzzer Sounds
+Teams can choose from these distinct sounds during setup:
+1. `automobile-horn.mp3` - Car horn sound
+2. `bell-ring.mp3` - Bell ringing
+3. `bell.mp3` - Bell sound
+4. `boat-horn.mp3` - Boat/ship horn
+5. `short-ah-yell.mp3` - Quick yell
+6. `short-horn.mp3` - Short horn blast
+
+### Game Sound Effects
+- `buzzer.mp3` - Wrong answer sound (played automatically when a team answers incorrectly or all teams fail a multiple-choice question)
 
 ## Adding More Buzzer Sounds (Optional)
 

@@ -350,6 +350,11 @@ export function GameClient({ accessToken }: GameClientProps) {
         // Check if all teams are now disqualified
         if (newDisqualified.size === teams.length) {
           console.log('All teams disqualified - showing album art and advancing')
+
+          // Play wrong answer buzzer sound only when all teams got it wrong
+          const wrongBuzzer = new Audio('/sounds/buzzer.mp3')
+          wrongBuzzer.play().catch(err => console.warn('Wrong answer buzzer failed:', err))
+
           setShowAlbumArt(true)
           const albumArtDelay = 3000  // Universal delay
           setTimeout(() => {
