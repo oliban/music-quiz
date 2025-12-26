@@ -97,8 +97,15 @@ export function GameClient({ accessToken }: GameClientProps) {
         setIsPlaying(false)
 
         if (!hasAnswerRef.current) {
-          console.log('Track ended with no answer - showing continue dialog')
-          setShowNoAnswerDialog(true)
+          // Wait for all options to reveal before showing dialog
+          const maxDelay = currentQuestion?.optionRevealDelays
+            ? Math.max(...currentQuestion.optionRevealDelays)
+            : 0
+
+          setTimeout(() => {
+            console.log('Track ended with no answer - showing continue dialog')
+            setShowNoAnswerDialog(true)
+          }, maxDelay * 1000)
         }
       })
 
@@ -211,8 +218,15 @@ export function GameClient({ accessToken }: GameClientProps) {
           console.log('Track ended')
           // Check if no one has answered yet (using ref to avoid stale closure)
           if (!hasAnswerRef.current) {
-            console.log('Track ended with no answer - showing continue dialog')
-            setShowNoAnswerDialog(true)
+            // Wait for all options to reveal before showing dialog
+            const maxDelay = currentQuestion?.optionRevealDelays
+              ? Math.max(...currentQuestion.optionRevealDelays)
+              : 0
+
+            setTimeout(() => {
+              console.log('Track ended with no answer - showing continue dialog')
+              setShowNoAnswerDialog(true)
+            }, maxDelay * 1000)
           }
         }
       })
@@ -978,17 +992,13 @@ export function GameClient({ accessToken }: GameClientProps) {
   const handleBuzzIncorrect = () => {
     // No points awarded
     hasAnswerRef.current = true
-    setShowAlbumArt(true)
     const team = teams.find(t => t.id === buzzedTeam)
     console.log(`${team?.name} got it wrong - no points awarded`)
 
-    // Clear buzzer and advance
+    // Clear buzzer and advance immediately to next question
     setBuzzedTeam(null)
     setShowAnswerPrompt(false)
-    const albumArtDelay = isIOSDevice ? 2000 : 4000
-    setTimeout(() => {
-      handleNextQuestion()
-    }, albumArtDelay)
+    handleNextQuestion()
   }
 
   const handleNoAnswerContinue = () => {
@@ -1042,17 +1052,21 @@ export function GameClient({ accessToken }: GameClientProps) {
         </button>
       )}
 
-      {/* Touch zones */}
-      <TouchZones
-        zones={touchZones}
-        teams={teams}
-        disqualifiedTeams={disqualifiedTeams}
-        celebratingTeam={celebratingTeam}
-        onZoneTouch={handleZoneTouch}
-        onZoneMount={(zoneId, rect) => {
-          zoneRefs.current.set(zoneId, rect)
-        }}
-      />
+      {/* Touch zones - only visible for buzz-in questions and hidden when showing dialogs */}
+      {(!currentQuestion || currentQuestion.type === 'buzz-in') && !showAlbumArt && !showAnswerPrompt && !showNoAnswerDialog && (
+        <TouchZones
+          zones={touchZones}
+          teams={teams}
+          disqualifiedTeams={disqualifiedTeams}
+          celebratingTeam={celebratingTeam}
+          onZoneTouch={handleZoneTouch}
+          onZoneMount={(zoneId, rect) => {
+            zoneRefs.current.set(zoneId, rect)
+          }}
+          currentQuestionType={currentQuestion?.type || null}
+          buzzedTeam={buzzedTeam}
+        />
+      )}
 
       {/* Question counter on both sides */}
       {gameStarted && currentQuestion && (
@@ -1200,23 +1214,29 @@ export function GameClient({ accessToken }: GameClientProps) {
             }
             centerContent={
               <>
-                {/* Play/Pause button - positioned at top of center zone, above scoreboard */}
-                <div className={`absolute top-4 ${teams.length === 6 ? 'left-40' : 'left-4'}`}>
-                  <button
-                    onClick={isPlaying ? handleStopAudio : handlePlayAudio}
-                    className={`${
-                      isPlaying
-                        ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
-                        : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
-                    } text-white font-bold py-3 px-6 rounded-full transition-colors touch-manipulation shadow-lg`}
-                  >
-                    {isPlaying ? '🎵 Playing...' : '⏸️ Paused'}
-                  </button>
-                </div>
+                {/* Play/Pause button - hidden when showing answer dialogs */}
+                {!showAnswerPrompt && !showAlbumArt && !showNoAnswerDialog && (
+                  <div className={`absolute top-4 ${teams.length === 6 ? 'left-40' : 'left-4'}`}>
+                    <button
+                      onClick={isPlaying ? handleStopAudio : handlePlayAudio}
+                      className={`${
+                        isPlaying
+                          ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
+                          : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
+                      } text-white font-bold py-3 px-6 rounded-full transition-colors touch-manipulation shadow-lg`}
+                    >
+                      {isPlaying ? '🎵 Playing...' : '⏸️ Paused'}
+                    </button>
+                  </div>
+                )}
 
-                {/* Album art when answer is revealed */}
-                {showAlbumArt && currentQuestion && (
-                  <AlbumArtDisplay track={currentQuestion.track} />
+                {/* Album art when answer is revealed - covers entire screen with black background, rotated 90 degrees */}
+                {showAlbumArt && currentQuestion && !showAnswerPrompt && (
+                  <div className="fixed inset-0 bg-black z-[150] flex flex-col items-center justify-center gap-3 sm:gap-4">
+                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100">
+                      <AlbumArtDisplay track={currentQuestion.track} />
+                    </div>
+                  </div>
                 )}
 
                 {/* Dialogs - visible from both sides */}
@@ -1235,47 +1255,53 @@ export function GameClient({ accessToken }: GameClientProps) {
                   </div>
                 )}
 
-                {/* Stage 2: Was the answer correct? */}
+                {/* Stage 2: Combined Album Art + Answer Verification - covers entire screen with black background, rotated 90 degrees */}
                 {currentQuestion.type === 'buzz-in' && buzzedTeam && showAnswerPrompt && (
-                  <div className="bg-gray-800/95 p-3 sm:p-6 rounded-xl max-w-xs sm:max-w-md mx-auto shadow-2xl border-2 border-white/30 backdrop-blur-sm">
-                    <div className="text-sm sm:text-xl text-gray-300 mb-2 sm:mb-4 text-center">
-                      Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
-                    </div>
-                    <div className="text-base sm:text-2xl font-bold text-white mb-3 sm:mb-6 text-center">
-                      Did {teams.find(t => t.id === buzzedTeam)?.name} get the question right?
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-4">
-                      <button
-                        onClick={handleBuzzCorrect}
-                        className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-2 px-3 sm:py-4 sm:px-6 rounded-full text-base sm:text-xl transition-colors touch-manipulation"
-                      >
-                        ✓ Yes
-                      </button>
-                      <button
-                        onClick={handleBuzzIncorrect}
-                        className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-2 px-3 sm:py-4 sm:px-6 rounded-full text-base sm:text-xl transition-colors touch-manipulation"
-                      >
-                        ✗ No
-                      </button>
+                  <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center">
+                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex flex-col items-center justify-center gap-3 sm:gap-4">
+                      <AlbumArtDisplay track={currentQuestion.track} />
+
+                      {/* Answer Verification Prompt - Compact */}
+                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-xs sm:max-w-md w-full shadow-2xl border-2 border-white/30 backdrop-blur-sm">
+                        <div className="text-base sm:text-xl font-bold text-white mb-3 sm:mb-4 text-center">
+                          Did {teams.find(t => t.id === buzzedTeam)?.name} get the question right?
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                          <button
+                            onClick={handleBuzzCorrect}
+                            className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-2 px-3 sm:py-3 sm:px-4 rounded-full text-sm sm:text-base transition-colors touch-manipulation"
+                          >
+                            ✓ Yes
+                          </button>
+                          <button
+                            onClick={handleBuzzIncorrect}
+                            className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-2 px-3 sm:py-3 sm:px-4 rounded-full text-sm sm:text-base transition-colors touch-manipulation"
+                          >
+                            ✗ No
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* No answer dialog */}
+                {/* No answer dialog - covers entire screen with black background */}
                 {showNoAnswerDialog && !showReconnectDialog && (
-                  <div className="bg-gray-800/95 p-3 sm:p-6 rounded-xl max-w-xs sm:max-w-md mx-auto shadow-2xl border-2 border-white/30 backdrop-blur-sm">
-                    <div className="text-sm sm:text-xl text-gray-300 mb-2 sm:mb-4 text-center">
-                      Correct Answer: <span className="text-green-400 font-bold">{currentQuestion.correctAnswer}</span>
+                  <div className="fixed inset-0 bg-black z-[150] flex flex-col items-center justify-center gap-3 sm:gap-4">
+                    <AlbumArtDisplay track={currentQuestion.track} />
+
+                    {/* No Answer Prompt - Compact */}
+                    <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-xs sm:max-w-md w-full shadow-2xl border-2 border-white/30 backdrop-blur-sm">
+                      <div className="text-base sm:text-xl font-bold text-white mb-3 sm:mb-4 text-center">
+                        Time's up! No one answered.
+                      </div>
+                      <button
+                        onClick={handleNoAnswerContinue}
+                        className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-2 px-3 sm:py-3 sm:px-6 rounded-full text-sm sm:text-base transition-colors touch-manipulation"
+                      >
+                        Continue
+                      </button>
                     </div>
-                    <div className="text-base sm:text-2xl font-bold text-white mb-3 sm:mb-6 text-center">
-                      Time's up! No one answered.
-                    </div>
-                    <button
-                      onClick={handleNoAnswerContinue}
-                      className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-2 px-4 sm:py-4 sm:px-8 rounded-full text-base sm:text-xl transition-colors touch-manipulation"
-                    >
-                      Continue
-                    </button>
                   </div>
                 )}
 

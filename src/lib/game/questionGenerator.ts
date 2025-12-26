@@ -64,6 +64,47 @@ export class QuestionGenerator {
     return { isValid: true, warnings }
   }
 
+  private generateOptionRevealDelays(optionCount: number): number[] {
+    // 40% chance: all options appear instantly
+    if (Math.random() < 0.4) {
+      return Array(optionCount).fill(0)
+    }
+
+    // 60% chance: staggered reveals in 2-3 waves between 2-5 seconds
+    const waveCount = Math.random() < 0.5 ? 2 : 3
+    const waveTimes: number[] = []
+
+    // Generate wave timings
+    for (let i = 0; i < waveCount; i++) {
+      if (i === 0) {
+        // First wave: 30% chance at 0s, otherwise 2-3s
+        waveTimes.push(Math.random() < 0.3 ? 0 : 2 + Math.random())
+      } else if (i === 1) {
+        // Second wave: 2.5-4s
+        waveTimes.push(2.5 + Math.random() * 1.5)
+      } else {
+        // Third wave: 3.5-5s
+        waveTimes.push(3.5 + Math.random() * 1.5)
+      }
+    }
+
+    // Sort wave times to ensure proper ordering
+    waveTimes.sort((a, b) => a - b)
+
+    // Distribute options across waves randomly
+    const delays: number[] = []
+    const shuffledIndices = Array.from({ length: optionCount }, (_, i) => i)
+      .sort(() => Math.random() - 0.5)
+    const optionsPerWave = Math.ceil(optionCount / waveCount)
+
+    for (let i = 0; i < optionCount; i++) {
+      const waveIndex = Math.min(Math.floor(i / optionsPerWave), waveCount - 1)
+      delays[shuffledIndices[i]] = waveTimes[waveIndex]
+    }
+
+    return delays
+  }
+
   async generateQuestion(currentTrack: SpotifyTrack, questionIndex: number): Promise<GameQuestion> {
     const questionType: 'buzz-in' | 'drag-to-corner' = questionIndex % 2 === 0 ? 'buzz-in' : 'drag-to-corner'
 
@@ -192,6 +233,7 @@ export class QuestionGenerator {
     }
 
     const options = this.shuffleArray([selected.correctAnswer, ...validatedWrongAnswers])
+    const optionRevealDelays = this.generateOptionRevealDelays(options.length)
 
     return {
       type: 'drag-to-corner',
@@ -199,6 +241,7 @@ export class QuestionGenerator {
       question: selected.question,
       correctAnswer: selected.correctAnswer,
       options,
+      optionRevealDelays,
     }
   }
 

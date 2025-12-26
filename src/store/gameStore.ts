@@ -23,6 +23,7 @@ export interface GameQuestion {
   question: string
   correctAnswer: string
   options?: string[]
+  optionRevealDelays?: number[]  // Delays in seconds for staggered option reveals
 }
 
 interface GameState {

@@ -10,6 +10,8 @@ interface TouchZonesProps {
   celebratingTeam: string | null
   onZoneTouch: (zoneId: string) => void
   onZoneMount?: (zoneId: string, rect: DOMRect) => void
+  currentQuestionType?: 'buzz-in' | 'drag-to-corner' | null
+  buzzedTeam?: string | null
 }
 
 const ZONE_STYLES: Record<TouchZone['position'], string> = {
@@ -34,9 +36,10 @@ const ZONE_ROTATIONS: Record<TouchZone['position'], string> = {
   'right-middle': 'rotate-45',
 }
 
-export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, onZoneTouch, onZoneMount }: TouchZonesProps) {
+export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, onZoneTouch, onZoneMount, currentQuestionType, buzzedTeam }: TouchZonesProps) {
   const zoneElementRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
   const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map())
+  const soundLoadErrors = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     if (onZoneMount) {
@@ -72,13 +75,24 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
     // Reset and play sound
     audio.currentTime = 0
     audio.play().catch(err => {
-      console.error('Failed to play buzzer sound:', err)
+      // Only log error once per team to avoid console spam
+      if (!soundLoadErrors.current.has(zone.teamId)) {
+        soundLoadErrors.current.add(zone.teamId)
+        console.warn(
+          `Buzzer sound for ${team.name} could not be loaded. ` +
+          `Please add sound files to public/sounds/ directory. ` +
+          `See public/sounds/README.md for instructions.`
+        )
+      }
     })
   }
 
   const handleTouchStart = (zoneId: string) => {
     const zone = zones.find(z => z.id === zoneId)
-    if (zone) {
+    // Only play buzzer sound if:
+    // 1. There's an active buzz-in question
+    // 2. No team has buzzed yet
+    if (zone && currentQuestionType === 'buzz-in' && !buzzedTeam) {
       playBuzzerSound(zone)
     }
     onZoneTouch(zoneId)

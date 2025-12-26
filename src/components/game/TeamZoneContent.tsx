@@ -72,6 +72,7 @@ export function TeamZoneContent({
                     teamColor={teamForZone?.color}
                     useTapMode={true}
                     isRotated={isRotated}
+                    revealDelay={currentQuestion.optionRevealDelays?.[index] || 0}
                   />
                 ))}
               </div>
@@ -86,6 +87,7 @@ export function TeamZoneContent({
                     isAnswered={answeredCorrectly}
                     teamId=""
                     isRotated={isRotated}
+                    revealDelay={currentQuestion.optionRevealDelays?.[index] || 0}
                   />
                 ))}
               </div>

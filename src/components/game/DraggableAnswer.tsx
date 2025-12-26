@@ -11,18 +11,33 @@ interface DraggableAnswerProps {
   isRotated?: boolean
   teamColor?: string
   useTapMode?: boolean
+  revealDelay?: number
 }
 
-export function DraggableAnswer({ answer, onDragEnd, isAnswered, isWrongAnswer = false, teamId, isRotated = false, teamColor, useTapMode = false }: DraggableAnswerProps) {
+export function DraggableAnswer({ answer, onDragEnd, isAnswered, isWrongAnswer = false, teamId, isRotated = false, teamColor, useTapMode = false, revealDelay = 0 }: DraggableAnswerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [isVisible, setIsVisible] = useState(revealDelay === 0)
   const startPos = useRef({ x: 0, y: 0 })
   const elementRef = useRef<HTMLDivElement>(null)
 
+  // Handle reveal animation with delay
+  useEffect(() => {
+    setIsVisible(revealDelay === 0)
+
+    if (revealDelay === 0) return
+
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, revealDelay * 1000)
+
+    return () => clearTimeout(timer)
+  }, [revealDelay, answer])
+
   const handleStart = (clientX: number, clientY: number) => {
-    // Disable interaction if answered or if this is the wrong answer
-    if (isAnswered || isWrongAnswer) return
+    // Disable interaction if not visible yet, answered, or if this is the wrong answer
+    if (!isVisible || isAnswered || isWrongAnswer) return
 
     // In tap mode, immediately trigger the answer selection
     if (useTapMode) {
@@ -142,11 +157,14 @@ export function DraggableAnswer({ answer, onDragEnd, isAnswered, isWrongAnswer =
         ${useTapMode && !isDisabled ? 'hover:scale-105 hover:shadow-xl' : ''}
         ${isDisabled ? 'opacity-30' : ''}
         ${isWrongAnswer ? 'border-red-500 border-4' : ''}
+        ${isVisible && !isDisabled ? (useTapMode ? 'animate-fadeIn' : 'animate-fadeInNoDrag') : ''}
+        ${!isVisible ? 'opacity-0' : ''}
       `}
       style={{
         transform: useTapMode ? undefined : `translate(${visualX}px, ${visualY}px)`,
         touchAction: 'none',
         backgroundColor: teamColor,
+        animationDelay: `${revealDelay}s`,
       }}
       data-team-id={teamId}
       onMouseDown={handleMouseDown}

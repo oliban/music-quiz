@@ -11,7 +11,7 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
   const albumImage = track.album.images[0]?.url
 
   return (
-    <div className="flex flex-col items-center justify-center gap-6 sm:gap-8 animate-fadeIn px-4 sm:px-8 py-8">
+    <div className="flex flex-row items-center justify-center gap-6 sm:gap-8 animate-fadeIn px-4 sm:px-8 py-8">
       {/* Album art - HERO SIZE with dramatic effects */}
       {albumImage ? (
         <img
@@ -33,11 +33,11 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
         </div>
       )}
 
-      {/* Track and artist info - HERO TYPOGRAPHY */}
-      <div className="text-center flex-1 min-w-0 w-full max-w-4xl">
+      {/* Track and artist info - HERO TYPOGRAPHY on the right */}
+      <div className="text-left flex-1 min-w-0 max-w-2xl">
         {/* Song title - MASSIVE AND BOLD */}
         <div
-          className="text-3xl sm:text-4xl md:text-6xl font-black text-yellow-400 mb-2 sm:mb-4 leading-tight px-4"
+          className="text-2xl sm:text-3xl md:text-5xl font-black text-yellow-400 mb-2 sm:mb-4 leading-tight"
           style={{
             textShadow: '0 6px 30px rgba(0,0,0,1), 0 0 60px rgba(251,191,36,0.6), 0 3px 6px rgba(0,0,0,1)'
           }}
@@ -47,7 +47,7 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
 
         {/* Artist - PROMINENT */}
         <div
-          className="text-xl sm:text-2xl md:text-4xl font-bold text-white mb-1 sm:mb-2 px-4"
+          className="text-lg sm:text-xl md:text-3xl font-bold text-white mb-1 sm:mb-2"
           style={{
             textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)'
           }}
@@ -57,7 +57,7 @@ export function AlbumArtDisplay({ track }: AlbumArtDisplayProps) {
 
         {/* Album - CLEAR AND READABLE */}
         <div
-          className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-300 px-4"
+          className="text-base sm:text-lg md:text-xl font-semibold text-gray-300"
           style={{
             textShadow: '0 2px 8px rgba(0,0,0,0.8)'
           }}
