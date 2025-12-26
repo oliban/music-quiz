@@ -39,6 +39,8 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [showAnswerPrompt, setShowAnswerPrompt] = useState(false)
   const [disqualifiedTeams, setDisqualifiedTeams] = useState<Set<string>>(new Set())
   const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(30) // 30 second preview
   const [shuffleMode, setShuffleMode] = useState(true)
   const [playedTrackIndices, setPlayedTrackIndices] = useState<Set<number>>(new Set())
   const [celebratingTeam, setCelebratingTeam] = useState<string | null>(null)
@@ -111,6 +113,11 @@ export function GameClient({ accessToken }: GameClientProps) {
       // Track that playback has started
       if (audio.currentTime > 0) {
         trackHasStartedRef.current = true
+      }
+      // Update current time and duration for countdown timer
+      setCurrentTime(audio.currentTime)
+      if (audio.duration && !isNaN(audio.duration)) {
+        setDuration(audio.duration)
       }
     })
 
@@ -768,18 +775,38 @@ export function GameClient({ accessToken }: GameClientProps) {
                 {/* Play/Pause button - hidden when showing answer dialogs */}
                 {!showAnswerPrompt && !showAlbumArt && !showNoAnswerDialog && (
                   <>
-                    <div className={`absolute top-4 ${teams.length === 6 ? 'left-40' : 'left-4'}`}>
+                    {/* Play/Pause button - centered and discreet */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <button
                         onClick={isPlaying ? handleStopAudio : handlePlayAudio}
                         className={`${
                           isPlaying
-                            ? 'bg-green-500 hover:bg-green-600 active:bg-green-700'
-                            : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
-                        } text-white font-bold py-3 px-6 rounded-full transition-colors touch-manipulation shadow-lg`}
+                            ? 'bg-green-500/80 hover:bg-green-600/80'
+                            : 'bg-orange-500/80 hover:bg-orange-600/80'
+                        } text-white text-xs sm:text-sm py-1.5 px-3 sm:py-2 sm:px-4 rounded-full transition-colors pointer-events-auto shadow-md`}
                       >
-                        {isPlaying ? '🎵 Playing...' : '⏸️ Paused'}
+                        {isPlaying ? '🎵' : '⏸️'}
                       </button>
                     </div>
+
+                    {/* Countdown timers - left and right sides */}
+                    {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
+                      <>
+                        {/* Left timer - rotated for upper team */}
+                        <div className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 rotate-180 pointer-events-none">
+                          <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-red-500 tabular-nums" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                            {Math.ceil(duration - currentTime)}
+                          </div>
+                        </div>
+
+                        {/* Right timer - normal for lower team */}
+                        <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-red-500 tabular-nums" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                            {Math.ceil(duration - currentTime)}
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     {/* Question text in neutral middle area - two versions */}
                     {currentQuestion && (
@@ -830,26 +857,24 @@ export function GameClient({ accessToken }: GameClientProps) {
                 {/* Stage 2: Combined Album Art + Answer Verification - covers entire screen with black background, rotated 90 degrees */}
                 {currentQuestion.type === 'buzz-in' && buzzedTeam && showAnswerPrompt && (
                   <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center">
-                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex items-center gap-8">
+                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex items-center gap-8 -mt-24 sm:-mt-32 md:-mt-40">
                       {/* Answer Verification Prompt - Left side, narrower */}
-                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-[200px] shadow-2xl border-2 border-white/30 backdrop-blur-sm flex-shrink-0">
-                        <div className="text-base sm:text-lg font-bold text-white mb-3 text-center">
-                          Did {teams.find(t => t.id === buzzedTeam)?.name} get the question right?
+                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-[200px] h-64 sm:h-80 md:h-96 shadow-2xl border-2 border-white/30 backdrop-blur-sm flex-shrink-0 flex flex-col justify-center gap-3">
+                        <button
+                          onClick={handleBuzzCorrect}
+                          className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-6 px-8 rounded-full text-2xl sm:text-3xl transition-colors touch-manipulation"
+                        >
+                          ✓ Yes
+                        </button>
+                        <div className="text-base sm:text-lg font-bold text-white text-center">
+                          Is {teams.find(t => t.id === buzzedTeam)?.name} answer correct?
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <button
-                            onClick={handleBuzzCorrect}
-                            className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-6 rounded-full text-lg sm:text-xl transition-colors touch-manipulation"
-                          >
-                            ✓ Yes
-                          </button>
-                          <button
-                            onClick={handleBuzzIncorrect}
-                            className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-lg sm:text-xl transition-colors touch-manipulation"
-                          >
-                            ✗ No
-                          </button>
-                        </div>
+                        <button
+                          onClick={handleBuzzIncorrect}
+                          className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-6 px-8 rounded-full text-2xl sm:text-3xl transition-colors touch-manipulation"
+                        >
+                          ✗ No
+                        </button>
                       </div>
 
                       {/* Album art with track info - Right side */}
