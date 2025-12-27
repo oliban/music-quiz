@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import confetti from 'canvas-confetti'
@@ -46,10 +46,12 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [celebratingTeam, setCelebratingTeam] = useState<string | null>(null)
   const [showNoAnswerDialog, setShowNoAnswerDialog] = useState(false)
   const [showAlbumArt, setShowAlbumArt] = useState(false)
+  const [gameEndReason, setGameEndReason] = useState<'score_limit' | 'tracks_exhausted'>('tracks_exhausted')
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hasAnswerRef = useRef(false)
   const trackHasStartedRef = useRef(false)
+  const gameEndedRef = useRef(false)
 
   useEffect(() => {
     if (!playlist || teams.length === 0) {
@@ -61,26 +63,21 @@ export function GameClient({ accessToken }: GameClientProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    console.log('🔊 Initializing HTML5 audio player (30-second previews)')
-
     // Create HTML5 audio element
     const audio = new Audio()
     audioRef.current = audio
 
     // Audio event listeners
     audio.addEventListener('play', () => {
-      console.log('▶️ Audio started playing')
       setIsPlaying(true)
       trackHasStartedRef.current = true
     })
 
     audio.addEventListener('pause', () => {
-      console.log('⏸️ Audio paused')
       setIsPlaying(false)
     })
 
     audio.addEventListener('ended', () => {
-      console.log('🏁 Audio ended')
       setIsPlaying(false)
 
       if (!hasAnswerRef.current) {
@@ -90,7 +87,6 @@ export function GameClient({ accessToken }: GameClientProps) {
           : 0
 
         setTimeout(() => {
-          console.log('Track ended with no answer - showing continue dialog')
           setShowNoAnswerDialog(true)
         }, maxDelay * 1000)
       }
@@ -105,7 +101,6 @@ export function GameClient({ accessToken }: GameClientProps) {
         return
       }
 
-      console.error('❌ Audio error:', error?.code, error?.message)
       setIsPlaying(false)
     })
 
@@ -122,13 +117,23 @@ export function GameClient({ accessToken }: GameClientProps) {
     })
 
     setPlayerReady(true)
-    console.log('✅ Audio player ready')
 
     return () => {
       audio.pause()
       audio.src = ''
     }
   }, [])
+
+  // Auto-start game once tracks are loaded
+  useEffect(() => {
+    if (!loading && tracks.length > 0 && !gameStarted && !gameCompleted && questionGeneratorRef.current) {
+      // Auto-start after a short delay
+      const timer = setTimeout(() => {
+        handleStartGame()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [loading, tracks.length, gameStarted, gameCompleted])
 
   // Load tracks when component mounts
   useEffect(() => {
@@ -141,14 +146,10 @@ export function GameClient({ accessToken }: GameClientProps) {
         let playlistTracks = await client.getPlaylistTracks(playlist.id)
 
         // Extract preview URLs for tracks without them (ALL PLATFORMS)
-        console.log('🔍 Extracting preview URLs from embed player...')
-
         // Find tracks needing preview extraction
         const tracksNeedingPreviews = playlistTracks.filter(t => !t.preview_url)
 
         if (tracksNeedingPreviews.length > 0) {
-          console.log(`🔍 Extracting previews for ${tracksNeedingPreviews.length} tracks...`)
-
           // Batch extract preview URLs
           const trackIds = tracksNeedingPreviews.map(t => t.id)
           const previewUrls = await client.getPreviewUrls(trackIds)
@@ -166,9 +167,6 @@ export function GameClient({ accessToken }: GameClientProps) {
 
         const skippedCount = originalCount - playlistTracks.length
         if (skippedCount > 0) {
-          console.log(`⏭️ Skipped ${skippedCount} tracks without previews`)
-          console.log(`✅ ${playlistTracks.length} tracks available with 30-second previews`)
-
           if (playlistTracks.length === 0) {
             alert('⚠️ No tracks in this playlist have preview clips available.\n\nPlease select a different playlist.')
             return
@@ -204,6 +202,44 @@ export function GameClient({ accessToken }: GameClientProps) {
     loadTracks()
   }, [playlist, accessToken])
 
+  const checkWinCondition = (): { hasWinner: boolean; winnerId: string | null } => {
+    // Always get fresh state from store to avoid stale state issues
+    const currentTeams = useGameStore.getState().teams
+    const winningTeam = currentTeams.find(team => team.score >= 10)
+    return {
+      hasWinner: !!winningTeam,
+      winnerId: winningTeam?.id || null
+    }
+  }
+
+  const handleGameWin = useCallback((winnerId: string, endReason: 'score_limit' | 'tracks_exhausted') => {
+    if (gameEndedRef.current) return
+    gameEndedRef.current = true
+
+    if (audioRef.current) {
+      audioRef.current.pause()
+    }
+
+    setGameStarted(false)
+    setGameCompleted(true)
+    setGameEndReason(endReason)
+    setCurrentQuestion(null)
+    setIsPlaying(false)
+
+    const winningTeam = teams.find(t => t.id === winnerId)
+    useGameStore.getState().saveGameResult(
+      playedTrackIndices.size,
+      endReason,
+      winningTeam?.score
+    )
+
+    // Celebrate will be called separately after win check
+    if (endReason === 'score_limit') {
+      setCelebratingTeam(winnerId)
+      setTimeout(() => setCelebratingTeam(null), 4000)
+    }
+  }, [teams, playedTrackIndices.size])
+
   const handleStartGame = async () => {
     if (!questionGeneratorRef.current || tracks.length === 0) return
 
@@ -214,17 +250,13 @@ export function GameClient({ accessToken }: GameClientProps) {
   const generateNextQuestion = async () => {
     if (!questionGeneratorRef.current) return
 
-    // Check if game is over
+    // Check if all tracks played (fallback win condition)
     if (playedTrackIndices.size >= tracks.length) {
-      // All tracks played - game over
-      setCurrentQuestion(null)
-      setGameStarted(false)
-      setGameCompleted(true)
+      // Determine winner by highest score
+      const sortedTeams = [...teams].sort((a, b) => b.score - a.score)
+      const winnerId = sortedTeams[0].id
 
-      // Stop audio
-      if (audioRef.current) {
-        audioRef.current.pause()
-      }
+      handleGameWin(winnerId, 'tracks_exhausted')
       return
     }
 
@@ -241,12 +273,10 @@ export function GameClient({ accessToken }: GameClientProps) {
       trackIndex = questionIndex
       if (playedTrackIndices.has(trackIndex)) {
         // Already played this track, game should be over
-        setCurrentQuestion(null)
-        setGameStarted(false)
-        setGameCompleted(true)
-        if (audioRef.current) {
-          audioRef.current.pause()
-        }
+        const sortedTeams = [...teams].sort((a, b) => b.score - a.score)
+        const winnerId = sortedTeams[0].id
+
+        handleGameWin(winnerId, 'tracks_exhausted')
         return
       }
     }
@@ -256,8 +286,6 @@ export function GameClient({ accessToken }: GameClientProps) {
 
     const track = tracks[trackIndex]
     const question = await questionGeneratorRef.current.generateQuestion(track, trackIndex)
-
-    console.log(`🎯 Generated question for: "${track.name}" by ${track.artists?.[0]?.name || 'Unknown'}`)
 
     setCurrentQuestion(question)
     setAnsweredCorrectly(false)
@@ -280,8 +308,6 @@ export function GameClient({ accessToken }: GameClientProps) {
   }
 
   const playTrack = async (trackUri: string, previewUrlOverride?: string) => {
-    console.log(`🎵 Playing 30-second preview`)
-
     if (!audioRef.current) {
       console.error('❌ Audio player not initialized')
       return
@@ -303,9 +329,6 @@ export function GameClient({ accessToken }: GameClientProps) {
       trackHasStartedRef.current = false
     } catch (error: any) {
       console.error('❌ Failed to play audio:', error)
-      if (error.name === 'NotAllowedError') {
-        console.log('🚫 Auto-play blocked - tap play button')
-      }
       setIsPlaying(false)
     }
   }
@@ -321,22 +344,27 @@ export function GameClient({ accessToken }: GameClientProps) {
 
       // Check if team is disqualified
       if (disqualifiedTeams.has(droppedOnTeamId)) {
-        console.log(`${team?.name} is disqualified - cannot answer this question`)
         return
       }
 
       const isCorrect = answer === currentQuestion.correctAnswer
-
-      console.log(`Answer "${answer}" dropped on ${team?.name}'s corner`)
-      console.log(`Correct answer: ${currentQuestion.correctAnswer}`)
-      console.log(`Is correct: ${isCorrect}`)
 
       if (isCorrect) {
         setAnsweredCorrectly(true)
         hasAnswerRef.current = true
         setShowAlbumArt(true)
         useGameStore.getState().updateScore(droppedOnTeamId, 1)
-        console.log(`${team?.name} earned 1 point!`)
+
+        // CHECK WIN CONDITION
+        const { hasWinner, winnerId } = checkWinCondition()
+        if (hasWinner && winnerId) {
+          setTimeout(() => {
+            celebrate(winnerId)
+            handleGameWin(winnerId, 'score_limit')
+          }, 1000)
+          return
+        }
+
         celebrate(droppedOnTeamId)
 
         // Advance to next question after a delay (shorter on iOS to keep session alive)
@@ -345,6 +373,9 @@ export function GameClient({ accessToken }: GameClientProps) {
           handleNextQuestion()
         }, albumArtDelay)
       } else {
+        // PENALTY: Deduct 1 point
+        useGameStore.getState().updateScore(droppedOnTeamId, -1)
+
         // Show wrong answer feedback
         setSelectedWrongAnswer(answer)
         setWrongAnswerTeamId(droppedOnTeamId)
@@ -352,19 +383,14 @@ export function GameClient({ accessToken }: GameClientProps) {
         // Disqualify the team from trying again
         const newDisqualified = new Set([...disqualifiedTeams, droppedOnTeamId])
         setDisqualifiedTeams(newDisqualified)
-        console.log(`Wrong answer! ${team?.name} is now disqualified from this question.`)
 
         // Check if all teams are now disqualified
         if (newDisqualified.size === teams.length) {
-          console.log('All teams disqualified - playing buzzer and showing album art')
-
           // Play wrong answer buzzer sound only when all teams got it wrong
           const wrongBuzzer = new Audio('/sounds/buzzer.mp3')
           wrongBuzzer.volume = 1.0
           wrongBuzzer.load()
-          wrongBuzzer.play()
-            .then(() => console.log('✅ Buzzer played successfully'))
-            .catch(err => console.error('❌ Buzzer play failed:', err))
+          wrongBuzzer.play().catch(err => console.error('❌ Buzzer play failed:', err))
 
           setShowAlbumArt(true)
           const albumArtDelay = 3000  // Universal delay
@@ -412,23 +438,45 @@ export function GameClient({ accessToken }: GameClientProps) {
     }
   }
 
-  const handleRematch = () => {
+  const handleRematch = async () => {
     // Reset game state but keep teams and playlist
     setQuestionIndex(0)
-    setGameStarted(false)
     setGameCompleted(false)
     setCurrentQuestion(null)
     setAnsweredCorrectly(false)
     setPlayedTrackIndices(new Set())
+    setGameEndReason('tracks_exhausted')
+    gameEndedRef.current = false
 
     // Reset all team scores to 0
     teams.forEach(team => {
       useGameStore.getState().updateScore(team.id, -team.score)
     })
+
+    // Re-setup touch zones to ensure correct team mapping
+    useGameStore.getState().setupTouchZones()
+
+    // Automatically start the game
+    setGameStarted(true)
+
+    // Use setTimeout to ensure state updates are applied
+    setTimeout(async () => {
+      await generateNextQuestion()
+    }, 100)
   }
 
   const handleNewGame = () => {
-    router.push('/setup')
+    // Reset all team scores to 0
+    teams.forEach(team => {
+      useGameStore.getState().updateScore(team.id, -team.score)
+    })
+
+    // Clear playlist and teams for fresh start
+    useGameStore.getState().setPlaylist(null)
+    useGameStore.getState().setTeams([])
+
+    // Navigate to setup with team setup shown
+    router.push('/setup?teams=new')
   }
 
   const celebrate = (teamId: string) => {
@@ -453,9 +501,7 @@ export function GameClient({ accessToken }: GameClientProps) {
     const randomSound = celebrationSounds[Math.floor(Math.random() * celebrationSounds.length)]
     const celebrationAudio = new Audio(randomSound)
     celebrationAudio.volume = 0.7
-    celebrationAudio.play()
-      .then(() => console.log('🎉 Celebration sound played:', randomSound))
-      .catch(err => console.warn('Celebration sound failed:', err))
+    celebrationAudio.play().catch(err => console.warn('Celebration sound failed:', err))
 
     // Convert hex color to RGB for confetti
     const hex = team.color.replace('#', '')
@@ -528,8 +574,17 @@ export function GameClient({ accessToken }: GameClientProps) {
     hasAnswerRef.current = true
     setShowAlbumArt(true)
     useGameStore.getState().updateScore(buzzedTeam, 1)
-    const team = teams.find(t => t.id === buzzedTeam)
-    console.log(`${team?.name} earned 1 point!`)
+
+    // CHECK WIN CONDITION
+    const { hasWinner, winnerId } = checkWinCondition()
+    if (hasWinner && winnerId) {
+      setTimeout(() => {
+        celebrate(winnerId)
+        handleGameWin(winnerId, 'score_limit')
+      }, 1000)
+      return
+    }
+
     celebrate(buzzedTeam)
 
     // Clear buzzer and advance
@@ -543,18 +598,18 @@ export function GameClient({ accessToken }: GameClientProps) {
   }
 
   const handleBuzzIncorrect = () => {
-    // No points awarded
+    if (!buzzedTeam) return
+
     hasAnswerRef.current = true
-    const team = teams.find(t => t.id === buzzedTeam)
-    console.log(`${team?.name} got it wrong - playing buzzer sound`)
+
+    // PENALTY: Deduct 1 point
+    useGameStore.getState().updateScore(buzzedTeam, -1)
 
     // Play wrong answer buzzer sound
     const wrongBuzzer = new Audio('/sounds/buzzer.mp3')
     wrongBuzzer.volume = 1.0
     wrongBuzzer.load()
-    wrongBuzzer.play()
-      .then(() => console.log('✅ Buzzer played successfully'))
-      .catch(err => console.error('❌ Buzzer play failed:', err))
+    wrongBuzzer.play().catch(err => console.error('❌ Buzzer play failed:', err))
 
     // Clear buzzer and advance after 1.5 second delay
     setBuzzedTeam(null)
@@ -565,7 +620,6 @@ export function GameClient({ accessToken }: GameClientProps) {
   }
 
   const handleNoAnswerContinue = () => {
-    console.log('No answer given - moving to next question')
     setShowNoAnswerDialog(false)
     handleNextQuestion()
   }
@@ -582,13 +636,10 @@ export function GameClient({ accessToken }: GameClientProps) {
     const team = teams.find((t) => t.id === zone.teamId)
     if (!team) return
 
-    console.log(`Team ${team.name} touched zone ${zoneId}`)
-
     // For buzz-in, first team to touch gets to answer
     if (!buzzedTeam) {
       setBuzzedTeam(team.id)
       setIsPlaying(false)
-      console.log(`${team.name} buzzed in! Stopping music...`)
 
       // Stop the music
       if (audioRef.current) {
@@ -626,129 +677,66 @@ export function GameClient({ accessToken }: GameClientProps) {
         />
       )}
 
-      {/* Question counter on both sides */}
-      {gameStarted && currentQuestion && (
-        <>
-          {[
-            { side: 'left', className: teams.length === 6 ? 'left-40' : 'left-4' },
-            { side: 'right', className: teams.length === 6 ? 'right-40 rotate-180' : 'right-4 rotate-180' }
-          ].map(({ side, className }) => (
-            <div key={side} className={`absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm z-40 ${className}`}>
-              Question {playedTrackIndices.size} of {tracks.length}
-            </div>
-          ))}
-        </>
-      )}
-
       {/* Main content with dual-zone layout */}
       <div className="absolute inset-0 pointer-events-none">
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
-            <TwofoldText className="text-white text-xl">
-              Loading tracks...
-            </TwofoldText>
-          </div>
-        )}
-
-        {!loading && !gameStarted && !gameCompleted && tracks.length > 0 && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
-            <div className="max-w-2xl w-full p-8">
-              <TwofoldText className="text-3xl font-bold text-white mb-8">
-                {playlist.name}
-              </TwofoldText>
-              <div className="mb-6 bg-gray-800 p-4 rounded-xl">
-                <div className="text-white text-lg mb-3 text-center">Play Order</div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShuffleMode(true)}
-                    className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors ${
-                      shuffleMode
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    🔀 Shuffle
-                  </button>
-                  <button
-                    onClick={() => setShuffleMode(false)}
-                    className={`flex-1 py-3 px-4 rounded-lg font-bold transition-colors ${
-                      !shuffleMode
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    📋 In Order
-                  </button>
-                </div>
+        {(loading || (!gameStarted && !gameCompleted && tracks.length > 0)) && (
+          <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center pointer-events-auto">
+            <div className="rotate-90">
+              <div className="text-5xl sm:text-6xl font-bold text-white whitespace-nowrap">
+                Starting game!
               </div>
-              <button
-                onClick={handleStartGame}
-                className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-12 rounded-full text-2xl transition-colors w-full"
-              >
-                Start Game
-              </button>
-              <TwofoldText className="text-gray-400 mt-4 text-sm">
-                {tracks.length} tracks loaded
-              </TwofoldText>
             </div>
           </div>
         )}
 
         {gameCompleted && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
-            <div className="max-w-2xl w-full p-8">
-              <TwofoldText className="text-4xl font-bold text-yellow-400 mb-8">
-                Game Over!
-              </TwofoldText>
+          <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center pointer-events-auto">
+            <div className="rotate-90 scale-75 sm:scale-90 md:scale-100">
+              <div className="flex items-center gap-12 p-4 pointer-events-auto">
+                {/* Giant Trophy */}
+                <div className="text-[12rem] leading-none">🏆</div>
 
-              {/* Final Scores */}
-              <div className="mb-8">
-                <TwofoldText className="text-2xl font-bold text-white mb-4">
-                  Final Scores
-                </TwofoldText>
-                <div className="grid grid-cols-1 gap-4">
-                  {teams
-                    .sort((a, b) => b.score - a.score)
-                    .map((team, index) => (
-                      <TwofoldText
-                        key={team.id}
-                        className={`p-4 rounded-lg ${
-                          index === 0 ? 'bg-yellow-600' : 'bg-gray-800'
-                        }`}
-                      >
-                        <span className="text-2xl mr-3">
-                          {index === 0 ? '🏆' : `${index + 1}.`}
-                        </span>
-                        <span className="font-bold" style={{ color: team.color }}>
-                          {team.name}:
-                        </span>
-                        <span className="text-white ml-2 text-xl">{team.score} pts</span>
-                      </TwofoldText>
-                    ))}
+                {/* All Content */}
+                <div className="flex flex-col items-center gap-6">
+                  {/* Winner Info */}
+                  <div className="text-center">
+                    <div
+                      className="text-5xl sm:text-6xl md:text-7xl font-black mb-2"
+                      style={{
+                        color: [...teams].sort((a, b) => b.score - a.score)[0]?.color,
+                        textShadow: '0 0 40px rgba(255,255,255,0.5), 0 0 80px rgba(255,255,255,0.3)'
+                      }}
+                    >
+                      {[...teams].sort((a, b) => b.score - a.score)[0]?.name}
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-bold text-green-400 mb-2">
+                      WINS!
+                    </div>
+                    {/* Score */}
+                    <div className="text-5xl sm:text-6xl font-black text-yellow-400">
+                      {(() => {
+                        const sortedTeams = [...teams].sort((a, b) => b.score - a.score)
+                        return `${sortedTeams[0]?.score} - ${sortedTeams[1]?.score}`
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={handleRematch}
+                      className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-12 rounded-full text-2xl transition-colors touch-manipulation shadow-2xl"
+                    >
+                      ↻ Rematch
+                    </button>
+                    <button
+                      onClick={handleNewGame}
+                      className="bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-3 px-10 rounded-full text-lg transition-colors touch-manipulation"
+                    >
+                      New Playlist
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              {/* Winner Announcement */}
-              {teams.length > 0 && (
-                <TwofoldText className="text-3xl font-bold text-green-400 mb-8">
-                  {teams.sort((a, b) => b.score - a.score)[0].name} wins! 🎉
-                </TwofoldText>
-              )}
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={handleRematch}
-                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-lg transition-colors"
-                >
-                  Rematch
-                </button>
-                <button
-                  onClick={handleNewGame}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full text-lg transition-colors"
-                >
-                  New Game
-                </button>
               </div>
             </div>
           </div>

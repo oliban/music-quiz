@@ -26,6 +26,29 @@ export interface GameQuestion {
   optionRevealDelays?: number[]  // Delays in seconds for staggered option reveals
 }
 
+export interface GameResult {
+  id: string
+  date: string
+  playlistName: string
+  teams: {
+    name: string
+    score: number
+  }[]
+  winner: string
+  totalQuestions: number
+  endReason?: 'score_limit' | 'tracks_exhausted'
+  winningScore?: number
+}
+
+export interface TeamStats {
+  teamName: string
+  wins: number
+  losses: number
+  totalGames: number
+  totalScore: number
+  averageScore: number
+}
+
 interface GameState {
   // Setup
   playlist: SpotifyPlaylist | null
@@ -38,6 +61,9 @@ interface GameState {
   gameStarted: boolean
   questionStartTime: number | null
 
+  // History
+  gameHistory: GameResult[]
+
   // Actions
   setPlaylist: (playlist: SpotifyPlaylist) => void
   setTeams: (teams: Team[]) => void
@@ -45,6 +71,8 @@ interface GameState {
   startGame: () => void
   nextQuestion: () => void
   updateScore: (teamId: string, points: number) => void
+  saveGameResult: (totalQuestions: number, endReason?: 'score_limit' | 'tracks_exhausted', winningScore?: number) => void
+  getTeamStats: (teamName: string) => TeamStats
   reset: () => void
 }
 
@@ -68,6 +96,7 @@ export const useGameStore = create<GameState>()(
       currentTrackIndex: 0,
       gameStarted: false,
       questionStartTime: null,
+      gameHistory: [],
 
       // Actions
       setPlaylist: (playlist) => set({ playlist }),
@@ -99,10 +128,61 @@ export const useGameStore = create<GameState>()(
         set((state) => ({
           teams: state.teams.map((team) =>
             team.id === teamId
-              ? { ...team, score: team.score + points }
+              ? { ...team, score: Math.max(0, team.score + points) }
               : team
           ),
         }))
+      },
+
+      saveGameResult: (
+        totalQuestions: number,
+        endReason: 'score_limit' | 'tracks_exhausted' = 'tracks_exhausted',
+        winningScore?: number
+      ) => {
+        const { playlist, teams, gameHistory } = get()
+        if (!playlist || teams.length === 0) return
+
+        // Determine winner
+        const sortedTeams = [...teams].sort((a, b) => b.score - a.score)
+        const winner = sortedTeams[0].name
+
+        const gameResult: GameResult = {
+          id: `game-${Date.now()}`,
+          date: new Date().toISOString(),
+          playlistName: playlist.name,
+          teams: teams.map(t => ({ name: t.name, score: t.score })),
+          winner,
+          totalQuestions,
+          endReason,
+          winningScore: winningScore ?? sortedTeams[0].score,
+        }
+
+        set({ gameHistory: [gameResult, ...gameHistory].slice(0, 50) }) // Keep last 50 games
+      },
+
+      getTeamStats: (teamName) => {
+        const { gameHistory } = get()
+        const teamGames = gameHistory.filter(game =>
+          game.teams.some(t => t.name === teamName)
+        )
+
+        const wins = teamGames.filter(game => game.winner === teamName).length
+        const totalGames = teamGames.length
+        const losses = totalGames - wins
+        const totalScore = teamGames.reduce((sum, game) => {
+          const teamData = game.teams.find(t => t.name === teamName)
+          return sum + (teamData?.score || 0)
+        }, 0)
+        const averageScore = totalGames > 0 ? totalScore / totalGames : 0
+
+        return {
+          teamName,
+          wins,
+          losses,
+          totalGames,
+          totalScore,
+          averageScore,
+        }
       },
 
       reset: () =>
@@ -145,6 +225,15 @@ export const useGameStore = create<GameState>()(
           state.teams = state.teams.map(team => ({
             ...team,
             buzzerSound: buzzerMigrationMap[team.buzzerSound] || team.buzzerSound
+          }))
+        }
+
+        // Migration: Add default endReason to old game history entries
+        if (state && state.gameHistory.length > 0) {
+          state.gameHistory = state.gameHistory.map(game => ({
+            ...game,
+            endReason: game.endReason || 'tracks_exhausted',
+            winningScore: game.winningScore !== undefined ? game.winningScore : undefined
           }))
         }
       },
