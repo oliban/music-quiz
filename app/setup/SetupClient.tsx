@@ -251,11 +251,11 @@ export function SetupClient({ accessToken }: SetupClientProps) {
             </p>
             <p className="flex items-start gap-2">
               <span className="text-red-400 font-bold mt-1">❌</span>
-              <span><span className="text-white font-semibold">Wrong Answer:</span> <span className="text-red-400 font-bold">-1 point</span> (minimum 0)</span>
+              <span><span className="text-white font-semibold">Wrong Answer:</span> <span className="text-red-400 font-bold">-1 point</span></span>
             </p>
             <p className="flex items-start gap-2">
               <span className="text-blue-400 font-bold mt-1">🎵</span>
-              <span><span className="text-white font-semibold">Fallback:</span> If all tracks are played before anyone reaches 10 points, highest score wins</span>
+              <span><span className="text-white font-semibold">Song Length:</span> Each song plays for <span className="text-blue-400 font-bold">30 seconds max</span></span>
             </p>
           </div>
         </div>
@@ -384,7 +384,7 @@ export function SetupClient({ accessToken }: SetupClientProps) {
               Playlist: <span className="text-green-400">{persistedPlaylist?.name}</span>
             </p>
             <p className="text-gray-300 mb-6">
-              Teams: <span className="text-green-400">{persistedTeams.map(t => t.name).join(', ')}</span>
+              Teams: <span className="text-green-400">{persistedTeams.map(t => t.name).join(' vs. ')} {persistedTeams.map(t => t.score).join('-')}</span>
             </p>
             <div className="flex gap-3">
               <button

@@ -251,7 +251,6 @@ export function TestAudioClient({ accessToken }: TestAudioClientProps) {
             <li>• Connect to your Bluetooth speakers before starting</li>
             <li>• Adjust your device volume to a comfortable level</li>
             <li>• Make sure your speakers are turned on and paired</li>
-            <li>• The game plays 30-second music previews from Spotify</li>
           </ul>
         </div>
       </div>
