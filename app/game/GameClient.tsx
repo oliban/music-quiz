@@ -47,6 +47,7 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [showNoAnswerDialog, setShowNoAnswerDialog] = useState(false)
   const [showAlbumArt, setShowAlbumArt] = useState(false)
   const [gameEndReason, setGameEndReason] = useState<'score_limit' | 'tracks_exhausted'>('tracks_exhausted')
+  const [answerCountdown, setAnswerCountdown] = useState(5)
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hasAnswerRef = useRef(false)
@@ -134,6 +135,30 @@ export function GameClient({ accessToken }: GameClientProps) {
       return () => clearTimeout(timer)
     }
   }, [loading, tracks.length, gameStarted, gameCompleted])
+
+  // Answer countdown timer for "Has answered?" dialog
+  useEffect(() => {
+    // Only run countdown when showing the "Has answered?" dialog
+    if (currentQuestion?.type === 'buzz-in' && buzzedTeam && !showAnswerPrompt) {
+      // Reset countdown to 5 when a new team buzzes in
+      setAnswerCountdown(5)
+
+      // Start countdown interval
+      const interval = setInterval(() => {
+        setAnswerCountdown(prev => {
+          if (prev <= 1) {
+            // Time's up! Auto-trigger incorrect answer
+            clearInterval(interval)
+            handleBuzzIncorrect()
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+
+      return () => clearInterval(interval)
+    }
+  }, [buzzedTeam, showAnswerPrompt, currentQuestion?.type])
 
   // Load tracks when component mounts
   useEffect(() => {
@@ -611,12 +636,15 @@ export function GameClient({ accessToken }: GameClientProps) {
     wrongBuzzer.load()
     wrongBuzzer.play().catch(err => console.error('❌ Buzzer play failed:', err))
 
-    // Clear buzzer and advance after 1.5 second delay
+    // Show album art with correct answer (stays until user clicks Continue)
+    setShowAlbumArt(true)
     setBuzzedTeam(null)
     setShowAnswerPrompt(false)
-    setTimeout(() => {
-      handleNextQuestion()
-    }, 1500)
+  }
+
+  const handleAlbumArtContinue = () => {
+    setShowAlbumArt(false)
+    handleNextQuestion()
   }
 
   const handleNoAnswerContinue = () => {
@@ -880,7 +908,20 @@ export function GameClient({ accessToken }: GameClientProps) {
                 {/* Album art when answer is revealed - covers entire screen with cassette gradient, rotated 90 degrees */}
                 {showAlbumArt && currentQuestion && !showAnswerPrompt && (
                   <div className="fixed inset-0 cassette-gradient z-[150] flex flex-col items-center justify-center gap-3 sm:gap-4">
-                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100">
+                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex flex-row items-center gap-8">
+                      {/* Continue button on the left */}
+                      <button
+                        onClick={handleAlbumArtContinue}
+                        className="text-white font-bold py-4 px-12 sm:py-6 sm:px-16 rounded-full text-2xl sm:text-3xl transition-all duration-300 touch-manipulation shadow-2xl"
+                        style={{
+                          backgroundColor: 'var(--neon-pink)',
+                          fontFamily: 'var(--font-righteous)',
+                          boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
+                        }}
+                      >
+                        Continue →
+                      </button>
+
                       <AlbumArtDisplay track={currentQuestion.track} />
                     </div>
                   </div>
@@ -899,6 +940,20 @@ export function GameClient({ accessToken }: GameClientProps) {
                         }}
                       >
                         Has {teams.find(t => t.id === buzzedTeam)?.name} answered?
+                      </div>
+
+                      {/* Countdown timer */}
+                      <div
+                        className={`text-4xl sm:text-5xl md:text-6xl font-bold tabular-nums ${answerCountdown <= 3 ? 'animate-pulse-strong' : ''}`}
+                        style={{
+                          fontFamily: 'var(--font-vt323)',
+                          color: answerCountdown <= 3 ? '#FF007A' : '#FFE600',
+                          textShadow: answerCountdown <= 3
+                            ? '0 0 20px #FF007A, 0 0 40px #FF007A, 0 0 60px #FF007A, 0 4px 20px rgba(0,0,0,0.9)'
+                            : '0 0 20px #FFE600, 0 0 40px #FFE600, 0 4px 20px rgba(0,0,0,0.9)',
+                        }}
+                      >
+                        {answerCountdown}
                       </div>
 
                       {/* Yes button */}
