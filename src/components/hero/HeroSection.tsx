@@ -53,7 +53,7 @@ export function HeroSection({ session }: HeroSectionProps) {
                   Touch Device Recommended
                 </h3>
                 <p className="text-yellow-200 text-sm">
-                  Mixtape Duel is designed for touch devices like tablets and smartphones.
+                  Mixtape Duel is designed for touch devices like tablets and smartphones and doesn't really make sense on a desktop, sorry.
                 </p>
                 <button
                   onClick={() => setShowWarning(false)}

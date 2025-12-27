@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     siteName: 'Mixtape Duel',
     images: [
       {
-        url: '/hero-image.png',
+        url: 'https://mixtape-duel.fly.dev/hero-image.png',
         width: 800,
         height: 600,
         alt: 'Mixtape Duel - Music quiz game',
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Mixtape Duel',
     description: '2-player music showdown powered by Spotify playlists. Two teams. One playlist. Ultimate showdown.',
-    images: ['/hero-image.png'],
+    images: ['https://mixtape-duel.fly.dev/hero-image.png'],
   },
 };
 
