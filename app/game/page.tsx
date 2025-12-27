@@ -10,8 +10,8 @@ export default function GamePage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
-        Loading...
+      <div className="min-h-screen cassette-gradient flex items-center justify-center">
+        <p className="text-white text-2xl neon-text">Loading...</p>
       </div>
     )
   }

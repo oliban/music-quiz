@@ -65,13 +65,18 @@ export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: Playl
   return (
     <div className="w-full max-w-2xl mx-auto p-4">
       <div className="mb-4">
-        <label className="block text-white text-lg mb-2 font-bold">Search for a Playlist</label>
+        <label
+          className="block text-white text-lg mb-2 font-bold"
+          style={{ fontFamily: 'var(--font-righteous)' }}
+        >
+          Search for a Playlist
+        </label>
         <input
           type="text"
           placeholder="Search for playlists..."
           value={query}
           onChange={handleInputChange}
-          className="w-full px-4 py-3 text-lg border-2 border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+          className="w-full px-4 py-3 text-lg border-2 border-gray-700 rounded-lg bg-gray-800/80 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-neon-pink focus:border-neon-pink"
         />
       </div>
 
@@ -82,7 +87,20 @@ export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: Playl
             <button
               key={search.query}
               onClick={() => handleQuickSearch(search.query)}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-full transition-all transform hover:scale-105 shadow-lg"
+              className="px-4 py-2 text-white font-semibold rounded-full transition-all transform hover:scale-105 shadow-lg"
+              style={{
+                backgroundColor: 'var(--neon-pink)',
+                fontFamily: 'var(--font-righteous)',
+                boxShadow: '0 0 10px var(--neon-pink)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
+                e.currentTarget.style.boxShadow = '0 0 15px var(--hot-magenta)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--neon-pink)';
+                e.currentTarget.style.boxShadow = '0 0 10px var(--neon-pink)';
+              }}
             >
               {search.label}
             </button>
@@ -109,13 +127,14 @@ export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: Playl
                 onClick={() => !isTooSmall && handleSelect(playlist)}
                 disabled={isTooSmall}
                 title={isTooSmall ? 'Too few tracks' : ''}
-                className={`w-full p-4 rounded-lg text-left transition-colors ${
+                className={`w-full p-4 rounded-lg text-left transition-all border-2 ${
                   isTooSmall
-                    ? 'bg-gray-900 text-gray-600 opacity-50 cursor-not-allowed'
+                    ? 'bg-gray-900/60 border-gray-800 text-gray-600 opacity-50 cursor-not-allowed'
                     : isSelected
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-800 text-white hover:bg-gray-700 cursor-pointer'
+                    ? 'bg-gray-800/80 border-neon-pink text-white'
+                    : 'bg-gray-800/80 border-gray-700 text-white hover:bg-gray-700/80 hover:border-gray-600 cursor-pointer'
                 }`}
+                style={isSelected && !isTooSmall ? { boxShadow: '0 0 20px var(--neon-pink)' } : {}}
               >
                 <div className="flex items-center gap-4">
                   {playlist.images?.[0]?.url && (

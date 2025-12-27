@@ -5,8 +5,8 @@ import { useGameStore } from '@/src/store/gameStore'
 import type { Team } from '@/src/store/gameStore'
 
 const TEAM_COLORS = [
-  '#3B82F6', // blue
-  '#EF4444', // red
+  '#00D9FF', // electric-blue
+  '#FF007A', // hot-magenta
 ]
 
 const TEAM_NAME_SUGGESTIONS = [
@@ -150,7 +150,12 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
 
   return (
     <div className="max-w-2xl mx-auto p-4">
-      <h2 className="text-3xl font-bold text-white mb-4">Team Setup</h2>
+      <h2
+        className="text-3xl font-bold text-white mb-4"
+        style={{ fontFamily: 'var(--font-righteous)' }}
+      >
+        Team Setup
+      </h2>
 
       <div className="space-y-12 mb-6">
         {teamNames.map((name, index) => {
@@ -214,7 +219,20 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
 
       <button
         onClick={handleComplete}
-        className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-lg transition-colors"
+        className="w-full text-white font-bold py-4 px-8 rounded-full text-lg transition-all duration-300 transform hover:scale-105"
+        style={{
+          backgroundColor: 'var(--neon-pink)',
+          fontFamily: 'var(--font-righteous)',
+          boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
+          e.currentTarget.style.boxShadow = '0 0 30px var(--hot-magenta), 0 0 60px var(--hot-magenta)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--neon-pink)';
+          e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
+        }}
       >
         Let's play!
       </button>

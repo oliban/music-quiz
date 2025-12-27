@@ -10,8 +10,8 @@ import type { SpotifyPlaylist } from '@/src/lib/spotify/types'
 import type { Team } from '@/src/store/gameStore'
 
 const TEAM_COLORS = [
-  '#3B82F6', // blue
-  '#EF4444', // red
+  '#00D9FF', // electric-blue
+  '#FF007A', // hot-magenta
 ]
 
 const TEAM_NAME_SUGGESTIONS = [
@@ -161,25 +161,44 @@ export function SetupClient({ accessToken }: SetupClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-black p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="relative min-h-screen cassette-gradient p-8 overflow-hidden">
+      {/* Scan lines overlay */}
+      <div className="retro-scanlines absolute inset-0" />
+
+      <div className="relative z-10 max-w-4xl mx-auto">
         <div className="flex justify-end mb-4">
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
-            className="text-gray-400 hover:text-white transition-colors text-sm"
+            className="text-gray-300 hover:text-white transition-colors text-sm"
+            style={{ fontFamily: 'var(--font-geist-sans)' }}
           >
             Log Out
           </button>
         </div>
 
-        <h1 className="text-4xl font-bold text-white mb-2">Game Setup</h1>
-        <p className="text-gray-400 mb-8">Select a playlist to use for the quiz</p>
+        <h1
+          className="text-4xl md:text-5xl font-bold text-white mb-2 neon-text"
+          style={{ fontFamily: 'var(--font-audiowide)' }}
+        >
+          GAME SETUP
+        </h1>
+        <p
+          className="text-gray-300 mb-8 text-lg"
+          style={{ fontFamily: 'var(--font-righteous)' }}
+        >
+          Select a playlist to use for the quiz
+        </p>
 
         {/* Game Rules Info Box */}
-        <div className="mb-8 bg-gradient-to-r from-blue-900/40 to-purple-900/40 border border-blue-500/30 rounded-lg p-6">
+        <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
           <div className="flex items-start gap-3 mb-3">
             <span className="text-2xl">ℹ️</span>
-            <h2 className="text-xl font-bold text-white">How to Play</h2>
+            <h2
+              className="text-xl font-bold text-white"
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              How to Play
+            </h2>
           </div>
           <div className="space-y-2 text-gray-300">
             <p className="flex items-start gap-2">
@@ -205,20 +224,28 @@ export function SetupClient({ accessToken }: SetupClientProps) {
           <div className="mb-8">
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className="w-full bg-gray-800 hover:bg-gray-700 rounded-lg p-4 transition-colors flex justify-between items-center"
+              className="w-full bg-gray-800/80 hover:bg-gray-700/80 border border-gray-700 rounded-lg p-4 transition-colors flex justify-between items-center"
             >
-              <span className="text-white font-bold text-lg">
+              <span
+                className="text-white font-bold text-lg"
+                style={{ fontFamily: 'var(--font-righteous)' }}
+              >
                 📊 Game History ({gameHistory.length} games)
               </span>
               <span className="text-gray-400">{showHistory ? '▼' : '▶'}</span>
             </button>
 
             {showHistory && (
-              <div className="mt-4 bg-gray-800 rounded-lg p-6">
+              <div className="mt-4 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
                 {/* Team Statistics */}
                 {uniqueTeamNames.length > 0 && (
                   <div className="mb-6">
-                    <h3 className="text-xl font-bold text-white mb-4">Team Statistics</h3>
+                    <h3
+                      className="text-xl font-bold text-white mb-4"
+                      style={{ fontFamily: 'var(--font-righteous)' }}
+                    >
+                      Team Statistics
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {uniqueTeamNames.map(teamName => {
                         const stats = getTeamStats(teamName)
@@ -227,7 +254,7 @@ export function SetupClient({ accessToken }: SetupClientProps) {
                           : 0
 
                         return (
-                          <div key={teamName} className="bg-gray-700 rounded-lg p-4">
+                          <div key={teamName} className="bg-gray-700/60 border border-gray-600 rounded-lg p-4">
                             <div className="text-lg font-bold text-white mb-2">{teamName}</div>
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div className="text-gray-400">Games:</div>
@@ -254,10 +281,15 @@ export function SetupClient({ accessToken }: SetupClientProps) {
 
                 {/* Recent Games */}
                 <div>
-                  <h3 className="text-xl font-bold text-white mb-4">Recent Games</h3>
+                  <h3
+                    className="text-xl font-bold text-white mb-4"
+                    style={{ fontFamily: 'var(--font-righteous)' }}
+                  >
+                    Recent Games
+                  </h3>
                   <div className="space-y-3">
                     {gameHistory.slice(0, 10).map((game) => (
-                      <div key={game.id} className="bg-gray-700 rounded-lg p-4">
+                      <div key={game.id} className="bg-gray-700/60 border border-gray-600 rounded-lg p-4">
                         <div className="flex justify-between items-start mb-2">
                           <div className="text-white font-semibold">{game.playlistName}</div>
                           <div className="flex gap-2 items-center">
@@ -301,53 +333,66 @@ export function SetupClient({ accessToken }: SetupClientProps) {
         )}
 
         {showContinue && (
-          <div className="mb-8 p-6 bg-gray-800 rounded-lg">
-            <h2 className="text-2xl font-bold text-white mb-4">Continue Previous Game?</h2>
+          <div className="mb-8 p-6 bg-gray-800/80 border border-gray-700 rounded-lg">
+            <h2
+              className="text-2xl font-bold text-white mb-4"
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              Continue Previous Game?
+            </h2>
             <p className="text-gray-300 mb-4">
               Playlist: <span className="text-green-400">{persistedPlaylist?.name}</span>
             </p>
             <p className="text-gray-300 mb-6">
               Teams: <span className="text-green-400">{persistedTeams.map(t => t.name).join(', ')}</span>
             </p>
-            <div className="flex flex-col gap-3">
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setupTouchZones()
-                    router.push('/game')
-                  }}
-                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full transition-colors flex-1"
-                >
-                  Continue Game
-                </button>
-                <button
-                  onClick={() => {
-                    setShowContinue(false)
-                    setTeams([])
-                    setPlaylist(null)
-                    setShowTeamSetup(true)
-                  }}
-                  className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-8 rounded-full transition-colors flex-1"
-                >
-                  New Game
-                </button>
-              </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setupTouchZones()
+                  router.push('/game')
+                }}
+                className="text-white font-bold py-3 px-8 rounded-full transition-all duration-300 transform hover:scale-105 flex-1"
+                style={{
+                  backgroundColor: 'var(--neon-pink)',
+                  fontFamily: 'var(--font-righteous)',
+                  boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
+                  e.currentTarget.style.boxShadow = '0 0 30px var(--hot-magenta), 0 0 60px var(--hot-magenta)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--neon-pink)';
+                  e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
+                }}
+              >
+                Continue Game
+              </button>
               <button
                 onClick={() => {
                   setShowContinue(false)
+                  setTeams([])
+                  setPlaylist(null)
                   setShowTeamSetup(true)
                 }}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full transition-colors text-sm"
+                className="text-white font-bold py-3 px-8 rounded-full transition-colors flex-1 bg-gray-600/80 hover:bg-gray-700/80 border border-gray-600"
+                style={{ fontFamily: 'var(--font-righteous)' }}
               >
-                Configure Teams
+                New Game
               </button>
             </div>
           </div>
         )}
 
         {persistedTeams.length > 0 && !persistedPlaylist && !showContinue && (
-          <div className="mb-8 p-6 bg-gray-800 rounded-lg border-2 border-green-500/30">
-            <h2 className="text-2xl font-bold text-white mb-4">Teams Ready!</h2>
+          <div className="mb-8 p-6 bg-gray-800/80 rounded-lg border-2 border-neon-pink/30">
+            <h2
+              className="text-2xl font-bold text-white mb-4"
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              Teams Ready!
+            </h2>
             <p className="text-gray-300 mb-2">
               <span className="text-green-400 font-bold">
                 {persistedTeams.map(t => t.name).join(' vs ')}
@@ -358,7 +403,8 @@ export function SetupClient({ accessToken }: SetupClientProps) {
             </p>
             <button
               onClick={() => setShowTeamSetup(true)}
-              className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-full transition-colors text-sm"
+              className="bg-gray-600/80 hover:bg-gray-700/80 border border-gray-600 text-white font-bold py-2 px-6 rounded-full transition-colors text-sm"
+              style={{ fontFamily: 'var(--font-righteous)' }}
             >
               New Teams
             </button>
@@ -378,7 +424,8 @@ export function SetupClient({ accessToken }: SetupClientProps) {
               <div className="mb-6 flex justify-center">
                 <button
                   onClick={() => setShowTeamSetup(true)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full transition-colors"
+                  className="bg-gray-600/80 hover:bg-gray-700/80 border border-gray-600 text-white font-bold py-3 px-8 rounded-full transition-colors"
+                  style={{ fontFamily: 'var(--font-righteous)' }}
                 >
                   Configure Teams
                 </button>
@@ -391,7 +438,20 @@ export function SetupClient({ accessToken }: SetupClientProps) {
               <div className="mt-8 flex justify-center">
                 <button
                   onClick={handleStartGame}
-                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-12 rounded-full text-lg transition-colors"
+                  className="text-white font-bold py-4 px-12 rounded-full text-lg transition-all duration-300 transform hover:scale-105"
+                  style={{
+                    backgroundColor: 'var(--neon-pink)',
+                    fontFamily: 'var(--font-righteous)',
+                    boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
+                    e.currentTarget.style.boxShadow = '0 0 30px var(--hot-magenta), 0 0 60px var(--hot-magenta)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--neon-pink)';
+                    e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
+                  }}
                 >
                   Let's play!
                 </button>

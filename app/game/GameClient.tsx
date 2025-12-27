@@ -649,11 +649,15 @@ export function GameClient({ accessToken }: GameClientProps) {
   }
 
   if (!playlist || teams.length === 0) {
-    return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>
+    return (
+      <div className="min-h-screen cassette-gradient flex items-center justify-center">
+        <p className="text-white text-2xl neon-text">Loading...</p>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
+    <div className="min-h-screen cassette-gradient relative overflow-hidden">
       {/* Logout button - only on start page */}
       {!gameStarted && !gameCompleted && (
         <button
@@ -680,17 +684,20 @@ export function GameClient({ accessToken }: GameClientProps) {
       {/* Main content with dual-zone layout */}
       <div className="absolute inset-0 pointer-events-none">
         {(loading || (!gameStarted && !gameCompleted && tracks.length > 0)) && (
-          <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center pointer-events-auto">
+          <div className="fixed inset-0 cassette-gradient z-[150] flex items-center justify-center pointer-events-auto">
             <div className="rotate-90">
-              <div className="text-5xl sm:text-6xl font-bold text-white whitespace-nowrap">
-                Starting game!
+              <div
+                className="text-5xl sm:text-6xl font-bold text-white whitespace-nowrap neon-text"
+                style={{ fontFamily: 'var(--font-audiowide)' }}
+              >
+                STARTING GAME!
               </div>
             </div>
           </div>
         )}
 
         {gameCompleted && (
-          <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center pointer-events-auto">
+          <div className="fixed inset-0 cassette-gradient z-[150] flex items-center justify-center pointer-events-auto">
             <div className="rotate-90 scale-75 sm:scale-90 md:scale-100">
               <div className="flex items-center gap-12 p-4 pointer-events-auto">
                 {/* Giant Trophy */}
@@ -703,13 +710,17 @@ export function GameClient({ accessToken }: GameClientProps) {
                     <div
                       className="text-5xl sm:text-6xl md:text-7xl font-black mb-2"
                       style={{
+                        fontFamily: 'var(--font-audiowide)',
                         color: [...teams].sort((a, b) => b.score - a.score)[0]?.color,
                         textShadow: '0 0 40px rgba(255,255,255,0.5), 0 0 80px rgba(255,255,255,0.3)'
                       }}
                     >
                       {[...teams].sort((a, b) => b.score - a.score)[0]?.name}
                     </div>
-                    <div className="text-3xl sm:text-4xl font-bold text-green-400 mb-2">
+                    <div
+                      className="text-3xl sm:text-4xl font-bold mb-2 neon-text"
+                      style={{ fontFamily: 'var(--font-righteous)' }}
+                    >
                       WINS!
                     </div>
                     {/* Score */}
@@ -725,13 +736,27 @@ export function GameClient({ accessToken }: GameClientProps) {
                   <div className="flex flex-col gap-3">
                     <button
                       onClick={handleRematch}
-                      className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-4 px-12 rounded-full text-2xl transition-colors touch-manipulation shadow-2xl"
+                      className="text-white font-bold py-4 px-12 rounded-full text-2xl transition-all duration-300 transform hover:scale-105 touch-manipulation shadow-2xl"
+                      style={{
+                        backgroundColor: 'var(--neon-pink)',
+                        fontFamily: 'var(--font-righteous)',
+                        boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
+                        e.currentTarget.style.boxShadow = '0 0 30px var(--hot-magenta), 0 0 60px var(--hot-magenta)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--neon-pink)';
+                        e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
+                      }}
                     >
                       ↻ Rematch
                     </button>
                     <button
                       onClick={handleNewGame}
-                      className="bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-3 px-10 rounded-full text-lg transition-colors touch-manipulation"
+                      className="bg-gray-600/80 hover:bg-gray-700/80 border border-gray-600 text-white font-bold py-3 px-10 rounded-full text-lg transition-colors touch-manipulation"
+                      style={{ fontFamily: 'var(--font-righteous)' }}
                     >
                       New Playlist
                     </button>
@@ -825,9 +850,9 @@ export function GameClient({ accessToken }: GameClientProps) {
                   </>
                 )}
 
-                {/* Album art when answer is revealed - covers entire screen with black background, rotated 90 degrees */}
+                {/* Album art when answer is revealed - covers entire screen with cassette gradient, rotated 90 degrees */}
                 {showAlbumArt && currentQuestion && !showAnswerPrompt && (
-                  <div className="fixed inset-0 bg-black z-[150] flex flex-col items-center justify-center gap-3 sm:gap-4">
+                  <div className="fixed inset-0 cassette-gradient z-[150] flex flex-col items-center justify-center gap-3 sm:gap-4">
                     <div className="rotate-90 scale-75 sm:scale-90 md:scale-100">
                       <AlbumArtDisplay track={currentQuestion.track} />
                     </div>
@@ -836,17 +861,28 @@ export function GameClient({ accessToken }: GameClientProps) {
 
                 {/* Stage 1: Has the team answered? - Black plate with rotated content */}
                 {currentQuestion.type === 'buzz-in' && buzzedTeam && !showAnswerPrompt && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black z-[100]">
+                  <div className="absolute inset-0 flex items-center justify-center cassette-gradient z-[100]">
                     <div className="rotate-90 flex flex-col items-center gap-6 sm:gap-8">
                       {/* Question text - constrained to neutral area width */}
-                      <div className="text-2xl sm:text-3xl md:text-4xl text-white font-bold text-center max-w-[250px] sm:max-w-[300px]" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                      <div
+                        className="text-2xl sm:text-3xl md:text-4xl text-white font-bold text-center max-w-[250px] sm:max-w-[300px]"
+                        style={{
+                          fontFamily: 'var(--font-righteous)',
+                          textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)'
+                        }}
+                      >
                         Has {teams.find(t => t.id === buzzedTeam)?.name} answered?
                       </div>
 
                       {/* Yes button */}
                       <button
                         onClick={() => handleHasAnswered(true)}
-                        className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-6 px-12 sm:py-8 sm:px-16 rounded-full text-3xl sm:text-4xl transition-colors touch-manipulation shadow-2xl"
+                        className="text-white font-bold py-6 px-12 sm:py-8 sm:px-16 rounded-full text-3xl sm:text-4xl transition-all duration-300 touch-manipulation shadow-2xl"
+                        style={{
+                          backgroundColor: 'var(--neon-pink)',
+                          fontFamily: 'var(--font-righteous)',
+                          boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
+                        }}
                       >
                         ✓ Yes
                       </button>
@@ -854,24 +890,37 @@ export function GameClient({ accessToken }: GameClientProps) {
                   </div>
                 )}
 
-                {/* Stage 2: Combined Album Art + Answer Verification - covers entire screen with black background, rotated 90 degrees */}
+                {/* Stage 2: Combined Album Art + Answer Verification - covers entire screen with cassette gradient, rotated 90 degrees */}
                 {currentQuestion.type === 'buzz-in' && buzzedTeam && showAnswerPrompt && (
-                  <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center">
+                  <div className="fixed inset-0 cassette-gradient z-[150] flex items-center justify-center">
                     <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex items-center gap-8 -mt-24 sm:-mt-32 md:-mt-40">
                       {/* Answer Verification Prompt - Left side, narrower */}
-                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-[200px] h-64 sm:h-80 md:h-96 shadow-2xl border-2 border-white/30 backdrop-blur-sm flex-shrink-0 flex flex-col justify-center gap-3">
+                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl max-w-[200px] h-64 sm:h-80 md:h-96 shadow-2xl border-2 border-gray-700 backdrop-blur-sm flex-shrink-0 flex flex-col justify-center gap-3">
                         <button
                           onClick={handleBuzzCorrect}
-                          className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-6 px-8 rounded-full text-2xl sm:text-3xl transition-colors touch-manipulation"
+                          className="text-white font-bold py-6 px-8 rounded-full text-2xl sm:text-3xl transition-all duration-300 touch-manipulation"
+                          style={{
+                            backgroundColor: 'var(--neon-pink)',
+                            fontFamily: 'var(--font-righteous)',
+                            boxShadow: '0 0 20px var(--neon-pink)',
+                          }}
                         >
                           ✓ Yes
                         </button>
-                        <div className="text-base sm:text-lg font-bold text-white text-center">
+                        <div
+                          className="text-base sm:text-lg font-bold text-white text-center"
+                          style={{ fontFamily: 'var(--font-righteous)' }}
+                        >
                           Is {teams.find(t => t.id === buzzedTeam)?.name} answer correct?
                         </div>
                         <button
                           onClick={handleBuzzIncorrect}
-                          className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold py-6 px-8 rounded-full text-2xl sm:text-3xl transition-colors touch-manipulation"
+                          className="text-white font-bold py-6 px-8 rounded-full text-2xl sm:text-3xl transition-all duration-300 touch-manipulation"
+                          style={{
+                            backgroundColor: 'var(--hot-magenta)',
+                            fontFamily: 'var(--font-righteous)',
+                            boxShadow: '0 0 20px var(--hot-magenta)',
+                          }}
                         >
                           ✗ No
                         </button>
@@ -887,18 +936,26 @@ export function GameClient({ accessToken }: GameClientProps) {
                   </div>
                 )}
 
-                {/* No answer dialog - covers entire screen with black background, rotated 90 degrees */}
+                {/* No answer dialog - covers entire screen with cassette gradient, rotated 90 degrees */}
                 {showNoAnswerDialog && (
-                  <div className="fixed inset-0 bg-black z-[150] flex items-center justify-center">
+                  <div className="fixed inset-0 cassette-gradient z-[150] flex items-center justify-center">
                     <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex items-center gap-8 -mt-24 sm:-mt-32 md:-mt-40">
                       {/* No Answer Prompt - Left side */}
-                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 shadow-2xl border-2 border-white/30 backdrop-blur-sm flex-shrink-0 flex flex-col justify-center gap-3">
-                        <div className="text-base sm:text-lg font-bold text-white text-center">
+                      <div className="bg-gray-800/95 p-3 sm:p-4 rounded-xl w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 shadow-2xl border-2 border-gray-700 backdrop-blur-sm flex-shrink-0 flex flex-col justify-center gap-3">
+                        <div
+                          className="text-base sm:text-lg font-bold text-white text-center"
+                          style={{ fontFamily: 'var(--font-righteous)' }}
+                        >
                           Time's up! No one answered.
                         </div>
                         <button
                           onClick={handleNoAnswerContinue}
-                          className="bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold py-6 px-8 rounded-full text-2xl sm:text-3xl transition-colors touch-manipulation"
+                          className="text-white font-bold py-6 px-8 rounded-full text-2xl sm:text-3xl transition-all duration-300 touch-manipulation"
+                          style={{
+                            backgroundColor: 'var(--neon-pink)',
+                            fontFamily: 'var(--font-righteous)',
+                            boxShadow: '0 0 20px var(--neon-pink)',
+                          }}
                         >
                           Continue
                         </button>

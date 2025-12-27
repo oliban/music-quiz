@@ -115,31 +115,39 @@ export function TestAudioClient({ accessToken }: TestAudioClientProps) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-black p-8">
-      <div className="max-w-2xl mx-auto">
+    <div className="relative min-h-screen cassette-gradient p-8 overflow-hidden">
+      {/* Scan lines overlay */}
+      <div className="retro-scanlines absolute inset-0" />
+
+      <div className="relative z-10 max-w-2xl mx-auto">
         <div className="flex justify-end mb-4">
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
-            className="text-gray-400 hover:text-white transition-colors text-sm"
+            className="text-gray-300 hover:text-white transition-colors text-sm"
+            style={{ fontFamily: 'var(--font-geist-sans)' }}
           >
             Log Out
           </button>
         </div>
 
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-4">Test Your Audio</h1>
-          <p className="text-gray-400 text-lg">
-            Connect your Bluetooth speakers and adjust the volume
-          </p>
-          <p className="text-gray-500 text-sm mt-2">
-            This is optional - you can skip and test during the game
+        <div className="text-center mb-12 animate-fadeIn">
+          <h1
+            className="text-5xl md:text-6xl font-bold text-white mb-4 neon-text"
+            style={{ fontFamily: 'var(--font-audiowide)' }}
+          >
+            AUDIO TEST
+          </h1>
+          <p
+            className="text-gray-300 text-xl"
+            style={{ fontFamily: 'var(--font-righteous)' }}
+          >
+            Connect your speakers and adjust the volume
           </p>
         </div>
 
-        <div className="bg-gray-800 rounded-lg p-8 mb-8">
-          <div className="flex flex-col items-center gap-6">
+        <div className="bg-gray-800/80 rounded-lg p-6 mb-8 border border-gray-700">
+          <div className="flex flex-col items-center gap-4">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-white mb-2">Spotify Audio Test</h2>
               <p className="text-gray-400">
                 Play a random song from your top 10 most played tracks
               </p>
@@ -150,14 +158,44 @@ export function TestAudioClient({ accessToken }: TestAudioClientProps) {
                 <button
                   onClick={handleTestAudio}
                   disabled={isTestingAudio}
-                  className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-lg transition-colors flex-1 text-lg"
+                  className="text-white font-bold py-4 px-8 rounded-lg transition-all duration-300 flex-1 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: isTestingAudio ? 'var(--midnight-purple)' : 'var(--neon-pink)',
+                    fontFamily: 'var(--font-righteous)',
+                    boxShadow: isTestingAudio ? 'none' : '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isTestingAudio) {
+                      e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
+                      e.currentTarget.style.boxShadow = '0 0 30px var(--hot-magenta), 0 0 60px var(--hot-magenta)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isTestingAudio) {
+                      e.currentTarget.style.backgroundColor = 'var(--neon-pink)';
+                      e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
+                    }
+                  }}
                 >
                   {isTestingAudio ? 'Playing...' : 'Test Audio'}
                 </button>
                 {isTestingAudio && (
                   <button
                     onClick={handleStopTest}
-                    className="bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-8 rounded-lg transition-colors text-lg"
+                    className="text-white font-bold py-4 px-8 rounded-lg transition-all duration-300 text-lg"
+                    style={{
+                      backgroundColor: 'var(--hot-magenta)',
+                      fontFamily: 'var(--font-righteous)',
+                      boxShadow: '0 0 20px var(--hot-magenta)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#CC0066';
+                      e.currentTarget.style.boxShadow = '0 0 30px var(--hot-magenta)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
+                      e.currentTarget.style.boxShadow = '0 0 20px var(--hot-magenta)';
+                    }}
                   >
                     Stop
                   </button>
@@ -165,17 +203,30 @@ export function TestAudioClient({ accessToken }: TestAudioClientProps) {
               </div>
 
               {testStatus && (
-                <div className="text-sm text-gray-300 bg-gray-700 rounded p-4 text-center">
+                <div className="text-sm text-gray-300 bg-gray-800/60 rounded p-4 text-center border border-gray-700">
                   {testStatus}
                 </div>
               )}
             </div>
 
-            <div className="mt-8 pt-8 border-t border-gray-700 w-full">
+            <div className="mt-4 w-full">
               <div className="flex justify-center">
                 <button
                   onClick={handleContinue}
-                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-12 rounded-full text-lg transition-colors"
+                  className="text-white font-bold py-4 px-12 rounded-full text-lg transition-all duration-300 transform hover:scale-105"
+                  style={{
+                    backgroundColor: 'var(--neon-pink)',
+                    fontFamily: 'var(--font-righteous)',
+                    boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
+                    e.currentTarget.style.boxShadow = '0 0 30px var(--hot-magenta), 0 0 60px var(--hot-magenta)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--neon-pink)';
+                    e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
+                  }}
                 >
                   Continue to Setup
                 </button>
@@ -184,8 +235,13 @@ export function TestAudioClient({ accessToken }: TestAudioClientProps) {
           </div>
         </div>
 
-        <div className="bg-gray-900 rounded-lg p-6">
-          <h3 className="text-lg font-bold text-white mb-3">Setup Tips:</h3>
+        <div className="bg-gray-800/80 rounded-lg p-6 border border-gray-700">
+          <h3
+            className="text-lg font-bold text-white mb-3"
+            style={{ fontFamily: 'var(--font-righteous)' }}
+          >
+            Setup Tips:
+          </h3>
           <ul className="text-gray-400 space-y-2">
             <li>• Connect to your Bluetooth speakers before starting</li>
             <li>• Adjust your device volume to a comfortable level</li>
