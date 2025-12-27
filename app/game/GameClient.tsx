@@ -48,6 +48,8 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [showAlbumArt, setShowAlbumArt] = useState(false)
   const [gameEndReason, setGameEndReason] = useState<'score_limit' | 'tracks_exhausted'>('tracks_exhausted')
   const [answerCountdown, setAnswerCountdown] = useState(5)
+  const [skipArtistQuestions, setSkipArtistQuestions] = useState(false)
+  const [dominantArtist, setDominantArtist] = useState<string | null>(null)
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hasAnswerRef = useRef(false)
@@ -202,10 +204,39 @@ export function GameClient({ accessToken }: GameClientProps) {
 
         setTracks(playlistTracks)
 
+        // Calculate artist distribution to determine if artist questions should be skipped
+        const artistCounts = new Map<string, number>()
+        playlistTracks.forEach(track => {
+          track.artists.forEach(artist => {
+            const artistName = artist.name.toLowerCase().trim()
+            artistCounts.set(artistName, (artistCounts.get(artistName) || 0) + 1)
+          })
+        })
+
+        // Find the most common artist
+        let maxCount = 0
+        let mostCommonArtist = ''
+        artistCounts.forEach((count, artist) => {
+          if (count > maxCount) {
+            maxCount = count
+            mostCommonArtist = artist
+          }
+        })
+
+        // Check if dominant artist has more than 65% of tracks
+        const dominancePercentage = (maxCount / playlistTracks.length) * 100
+        const shouldSkipArtistQuestions = dominancePercentage > 65
+
+        setSkipArtistQuestions(shouldSkipArtistQuestions)
+        if (shouldSkipArtistQuestions) {
+          setDominantArtist(mostCommonArtist)
+        }
+
         // Initialize question generator
         const generator = new QuestionGenerator({
           tracks: playlistTracks,
-          lastFmApiKey: process.env.NEXT_PUBLIC_LASTFM_API_KEY
+          lastFmApiKey: process.env.NEXT_PUBLIC_LASTFM_API_KEY,
+          skipArtistQuestions: shouldSkipArtistQuestions
         })
 
         // Validate playlist has sufficient data
@@ -267,6 +298,16 @@ export function GameClient({ accessToken }: GameClientProps) {
 
   const handleStartGame = async () => {
     if (!questionGeneratorRef.current || tracks.length === 0) return
+
+    // Show notification if artist questions are being skipped
+    if (skipArtistQuestions && dominantArtist) {
+      const artistNameFormatted = dominantArtist
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+
+      alert(`📢 Playlist Notice:\n\nThis playlist is dominated by ${artistNameFormatted} (>65% of tracks).\n\n"Who is the artist?" questions will be skipped to keep the game challenging!`)
+    }
 
     setGameStarted(true)
     await generateNextQuestion()
