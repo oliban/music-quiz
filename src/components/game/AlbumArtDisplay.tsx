@@ -15,27 +15,40 @@ export function AlbumArtDisplay({ track, highlightSong = false, highlightArtist 
 
   return (
     <div className="flex flex-row items-center justify-center gap-6 sm:gap-8 animate-fadeIn pl-2 pr-8 sm:pl-4 sm:pr-12 py-8 min-w-[500px] sm:min-w-[600px]">
-      {/* Album art - HERO SIZE with dramatic effects */}
+      {/* Album art - Polaroid-style frame */}
       {albumImage ? (
-        <div className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 flex-shrink-0">
-          <img
-            src={albumImage}
-            alt={`${track.album.name} album art`}
-            className="w-full h-full object-cover rounded-2xl border-4 sm:border-8 border-yellow-400/20"
-            style={{
-              boxShadow: BOX_SHADOWS.albumArt,
-              aspectRatio: '1 / 1'
-            }}
-          />
+        <div
+          className="bg-white p-3 sm:p-4 flex-shrink-0"
+          style={{
+            transform: 'rotate(-1.5deg)',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.5), 0 4px 8px rgba(0,0,0,0.3)',
+          }}
+        >
+          <div className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96">
+            <img
+              src={albumImage}
+              alt={`${track.album.name} album art`}
+              className="w-full h-full object-cover"
+              style={{
+                aspectRatio: '1 / 1'
+              }}
+            />
+          </div>
+          {/* Polaroid bottom space */}
+          <div className="h-8 sm:h-12 md:h-16 bg-white"></div>
         </div>
       ) : (
         <div
-          className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 bg-gray-800 rounded-2xl border-4 sm:border-8 border-yellow-400/20 flex items-center justify-center flex-shrink-0"
+          className="bg-white p-3 sm:p-4 flex-shrink-0"
           style={{
-            boxShadow: BOX_SHADOWS.albumArtFallback
+            transform: 'rotate(-1.5deg)',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.5), 0 4px 8px rgba(0,0,0,0.3)',
           }}
         >
-          <span className="text-gray-400 text-8xl sm:text-9xl">🎵</span>
+          <div className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 bg-gray-800 flex items-center justify-center">
+            <span className="text-gray-400 text-8xl sm:text-9xl">🎵</span>
+          </div>
+          <div className="h-8 sm:h-12 md:h-16 bg-white"></div>
         </div>
       )}
 

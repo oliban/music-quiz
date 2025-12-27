@@ -802,46 +802,73 @@ export function GameClient({ accessToken }: GameClientProps) {
                       </button>
                     </div>
 
-                    {/* Countdown timers - left and right sides */}
-                    {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
-                      <>
-                        {/* Left timer - rotated for upper team */}
-                        <div className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 rotate-180 pointer-events-none">
-                          <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-red-500 tabular-nums" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
-                            {Math.ceil(duration - currentTime)}
-                          </div>
-                        </div>
-
-                        {/* Right timer - normal for lower team */}
-                        <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 pointer-events-none">
-                          <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-red-500 tabular-nums" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
-                            {Math.ceil(duration - currentTime)}
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Question text in neutral middle area - two versions */}
+                    {/* Question text with countdown timers - two versions */}
                     {currentQuestion && (
                       <>
                         {/* Upper team question - rotated 180° */}
                         <div className="absolute top-2 sm:top-4 left-0 right-0 px-4 pointer-events-none">
-                          <div className="text-base sm:text-2xl text-yellow-400 font-bold text-center max-w-4xl mx-auto rotate-180" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
-                            {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
-                              /^(song|artist)$/i.test(part) ? (
-                                <span key={i} className="text-white animate-pulse" style={{ textShadow: '0 0 30px rgba(255,255,255,1), 0 0 60px rgba(255,255,255,0.8), 0 0 90px rgba(255,255,255,0.6), 0 0 120px rgba(255,255,255,0.4)' }}>{part}</span>
-                              ) : part
+                          <div className="flex items-center justify-center gap-3 sm:gap-4 rotate-180">
+                            {/* Spacing to balance the layout */}
+                            {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
+                              <div className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums opacity-0" style={{ fontFamily: 'var(--font-vt323)' }}>
+                                {Math.ceil(duration - currentTime)}
+                              </div>
+                            )}
+                            <div className={`text-yellow-400 font-bold text-center max-w-4xl transition-all duration-300 ${isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 ? 'text-3xl sm:text-4xl md:text-5xl animate-pulse-strong' : 'text-3xl'}`} style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                              {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
+                                /^(song|artist)$/i.test(part) ? (
+                                  <span key={i} className="text-white animate-pulse" style={{ textShadow: '0 0 30px rgba(255,255,255,1), 0 0 60px rgba(255,255,255,0.8), 0 0 90px rgba(255,255,255,0.6), 0 0 120px rgba(255,255,255,0.4)' }}>{part}</span>
+                                ) : part
+                              )}
+                            </div>
+                            {/* Countdown timer for upper team */}
+                            {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
+                              <div className="animate-pulse">
+                                <div
+                                  className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums"
+                                  style={{
+                                    fontFamily: 'var(--font-vt323)',
+                                    color: '#FF007A',
+                                    textShadow: '0 0 20px #FF007A, 0 0 40px #FF007A, 0 0 60px #FF007A, 0 4px 20px rgba(0,0,0,0.9)',
+                                  }}
+                                >
+                                  {Math.ceil(duration - currentTime)}
+                                </div>
+                              </div>
                             )}
                           </div>
                         </div>
 
                         {/* Lower team question - normal orientation */}
                         <div className="absolute bottom-2 sm:bottom-4 left-0 right-0 px-4 pointer-events-none">
-                          <div className="text-base sm:text-2xl text-yellow-400 font-bold text-center max-w-4xl mx-auto" style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
-                            {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
-                              /^(song|artist)$/i.test(part) ? (
-                                <span key={i} className="text-white animate-pulse" style={{ textShadow: '0 0 30px rgba(255,255,255,1), 0 0 60px rgba(255,255,255,0.8), 0 0 90px rgba(255,255,255,0.6), 0 0 120px rgba(255,255,255,0.4)' }}>{part}</span>
-                              ) : part
+                          <div className="flex items-center justify-center gap-3 sm:gap-4">
+                            {/* Spacing to balance the layout */}
+                            {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
+                              <div className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums opacity-0" style={{ fontFamily: 'var(--font-vt323)' }}>
+                                {Math.ceil(duration - currentTime)}
+                              </div>
+                            )}
+                            <div className={`text-yellow-400 font-bold text-center max-w-4xl transition-all duration-300 ${isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 ? 'text-3xl sm:text-4xl md:text-5xl animate-pulse-strong' : 'text-3xl'}`} style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                              {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
+                                /^(song|artist)$/i.test(part) ? (
+                                  <span key={i} className="text-white animate-pulse" style={{ textShadow: '0 0 30px rgba(255,255,255,1), 0 0 60px rgba(255,255,255,0.8), 0 0 90px rgba(255,255,255,0.6), 0 0 120px rgba(255,255,255,0.4)' }}>{part}</span>
+                                ) : part
+                              )}
+                            </div>
+                            {/* Countdown timer for lower team */}
+                            {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
+                              <div className="animate-pulse">
+                                <div
+                                  className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums"
+                                  style={{
+                                    fontFamily: 'var(--font-vt323)',
+                                    color: '#FF007A',
+                                    textShadow: '0 0 20px #FF007A, 0 0 40px #FF007A, 0 0 60px #FF007A, 0 4px 20px rgba(0,0,0,0.9)',
+                                  }}
+                                >
+                                  {Math.ceil(duration - currentTime)}
+                                </div>
+                              </div>
                             )}
                           </div>
                         </div>
