@@ -1,6 +1,8 @@
-# Music Quiz Game
+# Mixtape Duel
 
 A 2-team music quiz game powered by Spotify. Teams compete by identifying songs from their Spotify playlists in a fast-paced, interactive game designed for tablets and touch devices.
+
+**Live Demo**: [https://mixtape-duel.fly.dev](https://mixtape-duel.fly.dev)
 
 ## Features
 
@@ -118,6 +120,57 @@ NEXTAUTH_URL=https://your-ngrok-url.ngrok-free.app
 ```
 
 Now access the game from any device using the ngrok URL!
+
+## Deployment to Fly.io
+
+The app is configured for easy deployment to [Fly.io](https://fly.io).
+
+### Prerequisites
+
+- [Fly.io account](https://fly.io/app/sign-up) (free tier available)
+- Fly CLI installed: `brew install flyctl`
+
+### Deploy
+
+1. **Authenticate with Fly.io**:
+   ```bash
+   fly auth login
+   ```
+
+2. **Launch the app** (first time only):
+   ```bash
+   fly launch --no-deploy
+   ```
+   This uses the existing `fly.toml` configuration.
+
+3. **Set environment secrets**:
+   ```bash
+   fly secrets set SPOTIFY_CLIENT_ID="your_spotify_client_id"
+   fly secrets set SPOTIFY_CLIENT_SECRET="your_spotify_client_secret"
+   fly secrets set NEXTAUTH_SECRET="$(openssl rand -base64 32)"
+   fly secrets set NEXTAUTH_URL="https://your-app-name.fly.dev"
+   fly secrets set NEXT_PUBLIC_LASTFM_API_KEY="your_lastfm_key"  # optional
+   ```
+
+4. **Update Spotify redirect URI**:
+   Add `https://your-app-name.fly.dev/api/auth/callback/spotify` to your Spotify app's redirect URIs.
+
+5. **Deploy**:
+   ```bash
+   fly deploy
+   ```
+
+6. **Open your app**:
+   ```bash
+   fly open
+   ```
+
+### Auto-scaling
+
+The app is configured to:
+- Auto-stop when idle (saves costs on free tier)
+- Auto-start on first request
+- Run with 1GB RAM and 1 shared CPU
 
 ## How to Play
 
