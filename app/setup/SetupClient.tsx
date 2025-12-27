@@ -185,15 +185,9 @@ export function SetupClient({ accessToken }: SetupClientProps) {
   }
 
   const handleStartGame = () => {
-    if (selectedPlaylist) {
+    if (selectedPlaylist && persistedTeams.length > 0) {
       // Set playlist
       setPlaylist(selectedPlaylist)
-
-      // Only auto-generate teams if none exist
-      if (persistedTeams.length === 0) {
-        const teams = generateRandomTeams()
-        setTeams(teams)
-      }
       setupTouchZones()
 
       // Navigate directly to game
@@ -218,8 +212,13 @@ export function SetupClient({ accessToken }: SetupClientProps) {
         </div>
 
         <h1
-          className="text-4xl md:text-5xl font-bold text-white mb-2 neon-text"
-          style={{ fontFamily: 'var(--font-audiowide)' }}
+          className="text-4xl md:text-5xl font-bold mb-2"
+          style={{
+            fontFamily: 'var(--font-audiowide)',
+            color: '#FFFFFF',
+            textShadow: '0 0 5px var(--neon-pink), 0 0 10px var(--neon-pink), 0 0 15px var(--hot-magenta), 0 2px 4px rgba(0,0,0,0.8)',
+            WebkitTextStroke: '1px rgba(255, 110, 199, 0.3)',
+          }}
         >
           GAME SETUP
         </h1>
@@ -458,22 +457,17 @@ export function SetupClient({ accessToken }: SetupClientProps) {
           }} />
         )}
 
-        {!showContinue && !showTeamSetup && (
+        {!showContinue && (
           <>
-            {/* Only show Configure Teams button if Teams Ready section isn't showing */}
-            {!(persistedTeams.length > 0 && !persistedPlaylist) && (
-              <div className="mb-6 flex justify-center">
-                <button
-                  onClick={() => setShowTeamSetup(true)}
-                  className="bg-gray-600/80 hover:bg-gray-700/80 border border-gray-600 text-white font-bold py-3 px-8 rounded-full transition-colors"
-                  style={{ fontFamily: 'var(--font-righteous)' }}
-                >
-                  Configure Teams
-                </button>
-              </div>
+            {persistedTeams.length === 0 && !showTeamSetup && (
+              <TeamSetup onComplete={() => {
+                // Teams are now set up, component will re-render
+              }} />
             )}
 
-            <PlaylistSearch accessToken={accessToken} onSelect={handlePlaylistSelect} />
+            {persistedTeams.length > 0 && !showTeamSetup && (
+              <>
+                <PlaylistSearch accessToken={accessToken} onSelect={handlePlaylistSelect} />
 
             {/* Artist Skip Notice */}
             {selectedPlaylist && skipArtistQuestions && dominantArtists.length > 0 && (
@@ -532,6 +526,8 @@ export function SetupClient({ accessToken }: SetupClientProps) {
                   NEXT
                 </button>
               </div>
+            )}
+              </>
             )}
           </>
         )}

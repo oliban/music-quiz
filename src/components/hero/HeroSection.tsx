@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -11,6 +12,15 @@ interface HeroSectionProps {
 
 export function HeroSection({ session }: HeroSectionProps) {
   const router = useRouter()
+  const [isTouchDevice, setIsTouchDevice] = useState(true)
+  const [showWarning, setShowWarning] = useState(false)
+
+  useEffect(() => {
+    // Detect touch support
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    setIsTouchDevice(hasTouch)
+    setShowWarning(!hasTouch)
+  }, [])
 
   const handleButtonClick = () => {
     if (session) {
@@ -29,6 +39,34 @@ export function HeroSection({ session }: HeroSectionProps) {
       {/* Scan lines overlay */}
       <div className="retro-scanlines absolute inset-0" />
 
+      {/* Non-Touch Device Warning - Top of page */}
+      {showWarning && (
+        <div className="absolute top-4 left-4 right-4 z-20 max-w-2xl mx-auto">
+          <div className="bg-yellow-900/40 border-2 border-yellow-500/60 rounded-lg p-4 backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">📱</span>
+              <div className="text-left flex-1">
+                <h3
+                  className="text-lg font-bold text-yellow-400 mb-1"
+                  style={{ fontFamily: 'var(--font-righteous)' }}
+                >
+                  Touch Device Recommended
+                </h3>
+                <p className="text-yellow-200 text-sm">
+                  Mixtape Duel is designed for touch devices like tablets and smartphones.
+                </p>
+                <button
+                  onClick={() => setShowWarning(false)}
+                  className="mt-2 text-yellow-400 hover:text-yellow-300 text-sm underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main content */}
       <div className="relative z-10 text-center px-4 animate-fadeIn">
         {/* Hero Image - Using pre-cropped image */}
@@ -43,11 +81,15 @@ export function HeroSection({ session }: HeroSectionProps) {
           />
         </div>
 
-        {/* Title with Audiowide font and chromatic aberration effect */}
+        {/* Title with Audiowide font and readable neon effect */}
         <h1
-          className="text-6xl md:text-7xl font-bold text-white mb-2 neon-text"
-          style={{ fontFamily: 'var(--font-audiowide)' }}
-          data-text="MIXTAPE DUEL"
+          className="text-6xl md:text-7xl font-bold mb-2"
+          style={{
+            fontFamily: 'var(--font-audiowide)',
+            color: '#FFFFFF',
+            textShadow: '0 0 5px var(--neon-pink), 0 0 10px var(--neon-pink), 0 0 15px var(--hot-magenta), 0 2px 4px rgba(0,0,0,0.8)',
+            WebkitTextStroke: '1px rgba(255, 110, 199, 0.3)',
+          }}
         >
           MIXTAPE DUEL
         </h1>

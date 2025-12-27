@@ -725,7 +725,14 @@ export function GameClient({ accessToken }: GameClientProps) {
   if (!playlist || teams.length === 0) {
     return (
       <div className="min-h-screen cassette-gradient flex items-center justify-center">
-        <p className="text-white text-2xl neon-text">Loading...</p>
+        <p
+          className="text-white text-2xl"
+          style={{
+            textShadow: '0 0 5px var(--neon-pink), 0 0 10px var(--neon-pink), 0 2px 4px rgba(0,0,0,0.8)',
+          }}
+        >
+          Loading...
+        </p>
       </div>
     )
   }
@@ -761,8 +768,13 @@ export function GameClient({ accessToken }: GameClientProps) {
           <div className="fixed inset-0 cassette-gradient z-[150] flex items-center justify-center pointer-events-auto">
             <div className="rotate-90">
               <div
-                className="text-5xl sm:text-6xl font-bold text-white whitespace-nowrap neon-text"
-                style={{ fontFamily: 'var(--font-audiowide)' }}
+                className="text-5xl sm:text-6xl font-bold whitespace-nowrap"
+                style={{
+                  fontFamily: 'var(--font-audiowide)',
+                  color: '#FFFFFF',
+                  textShadow: '0 0 5px var(--neon-pink), 0 0 10px var(--neon-pink), 0 0 15px var(--hot-magenta), 0 2px 4px rgba(0,0,0,0.8)',
+                  WebkitTextStroke: '1px rgba(255, 110, 199, 0.3)',
+                }}
               >
                 STARTING GAME!
               </div>
@@ -792,8 +804,13 @@ export function GameClient({ accessToken }: GameClientProps) {
                       {[...teams].sort((a, b) => b.score - a.score)[0]?.name}
                     </div>
                     <div
-                      className="text-3xl sm:text-4xl font-bold mb-2 neon-text"
-                      style={{ fontFamily: 'var(--font-righteous)' }}
+                      className="text-3xl sm:text-4xl font-bold mb-2"
+                      style={{
+                        fontFamily: 'var(--font-righteous)',
+                        color: '#FFFFFF',
+                        textShadow: '0 0 5px var(--neon-pink), 0 0 10px var(--neon-pink), 0 0 15px var(--hot-magenta), 0 2px 4px rgba(0,0,0,0.8)',
+                        WebkitTextStroke: '1px rgba(255, 110, 199, 0.3)',
+                      }}
                     >
                       WINS!
                     </div>
@@ -1050,7 +1067,7 @@ export function GameClient({ accessToken }: GameClientProps) {
                           Is {teams.find(t => t.id === buzzedTeam)?.name} answer correct?
                         </div>
                         <button
-                          onClick={handleBuzzIncorrect}
+                          onClick={() => handleBuzzIncorrect(false)}
                           className="text-white font-bold py-6 px-8 rounded-full text-2xl sm:text-3xl transition-all duration-300 touch-manipulation"
                           style={{
                             backgroundColor: 'var(--hot-magenta)',

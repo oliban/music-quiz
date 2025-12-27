@@ -132,8 +132,13 @@ export function TestAudioClient({ accessToken }: TestAudioClientProps) {
 
         <div className="text-center mb-12 animate-fadeIn">
           <h1
-            className="text-5xl md:text-6xl font-bold text-white mb-4 neon-text"
-            style={{ fontFamily: 'var(--font-audiowide)' }}
+            className="text-5xl md:text-6xl font-bold mb-4"
+            style={{
+              fontFamily: 'var(--font-audiowide)',
+              color: '#FFFFFF',
+              textShadow: '0 0 5px var(--neon-pink), 0 0 10px var(--neon-pink), 0 0 15px var(--hot-magenta), 0 2px 4px rgba(0,0,0,0.8)',
+              WebkitTextStroke: '1px rgba(255, 110, 199, 0.3)',
+            }}
           >
             AUDIO TEST
           </h1>

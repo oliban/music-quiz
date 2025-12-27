@@ -11,7 +11,14 @@ export default function GamePage() {
   if (status === 'loading') {
     return (
       <div className="min-h-screen cassette-gradient flex items-center justify-center">
-        <p className="text-white text-2xl neon-text">Loading...</p>
+        <p
+          className="text-white text-2xl"
+          style={{
+            textShadow: '0 0 5px var(--neon-pink), 0 0 10px var(--neon-pink), 0 2px 4px rgba(0,0,0,0.8)',
+          }}
+        >
+          Loading...
+        </p>
       </div>
     )
   }
