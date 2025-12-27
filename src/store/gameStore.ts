@@ -65,7 +65,7 @@ interface GameState {
   gameHistory: GameResult[]
 
   // Actions
-  setPlaylist: (playlist: SpotifyPlaylist) => void
+  setPlaylist: (playlist: SpotifyPlaylist | null) => void
   setTeams: (teams: Team[]) => void
   setupTouchZones: () => void
   startGame: () => void
