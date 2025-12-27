@@ -115,7 +115,7 @@ export function SetupClient({ accessToken }: SetupClientProps) {
   const [showHistory, setShowHistory] = useState(false)
   const [showTeamSetup, setShowTeamSetup] = useState(false)
   const [skipArtistQuestions, setSkipArtistQuestions] = useState(false)
-  const [dominantArtist, setDominantArtist] = useState<string | null>(null)
+  const [dominantArtists, setDominantArtists] = useState<Array<{artist: string, percentage: number}>>([])
   const [loadingPlaylist, setLoadingPlaylist] = useState(false)
   const setPlaylist = useGameStore((state) => state.setPlaylist)
   const setTeams = useGameStore((state) => state.setTeams)
@@ -147,37 +147,35 @@ export function SetupClient({ accessToken }: SetupClientProps) {
     setSelectedPlaylist(playlist)
     setLoadingPlaylist(true)
     setSkipArtistQuestions(false)
-    setDominantArtist(null)
+    setDominantArtists([])
 
     try {
       // Fetch playlist tracks to analyze artist distribution
       const client = new SpotifyClient(accessToken)
       const tracks = await client.getPlaylistTracks(playlist.id)
 
-      // Calculate artist distribution
+      // Calculate artist distribution - find ALL artists with >30%
+      // Only count primary artist (first artist) to avoid inflated percentages from collaborations
       const artistCounts = new Map<string, number>()
       tracks.forEach(track => {
-        track.artists.forEach(artist => {
-          const artistName = artist.name.toLowerCase().trim()
-          artistCounts.set(artistName, (artistCounts.get(artistName) || 0) + 1)
-        })
-      })
-
-      // Find the most common artist
-      let maxCount = 0
-      let mostCommonArtist = ''
-      artistCounts.forEach((count, artist) => {
-        if (count > maxCount) {
-          maxCount = count
-          mostCommonArtist = artist
+        if (track.artists.length > 0) {
+          const primaryArtist = track.artists[0].name.toLowerCase().trim()
+          artistCounts.set(primaryArtist, (artistCounts.get(primaryArtist) || 0) + 1)
         }
       })
 
-      // Check if dominant artist has more than 65% of tracks
-      const dominancePercentage = (maxCount / tracks.length) * 100
-      if (dominancePercentage > 65) {
+      // Find ALL artists with more than 30% of tracks
+      const dominantArtistsList: Array<{artist: string, percentage: number}> = []
+      artistCounts.forEach((count, artist) => {
+        const percentage = (count / tracks.length) * 100
+        if (percentage > 30) {
+          dominantArtistsList.push({ artist, percentage })
+        }
+      })
+
+      if (dominantArtistsList.length > 0) {
         setSkipArtistQuestions(true)
-        setDominantArtist(mostCommonArtist)
+        setDominantArtists(dominantArtistsList)
       }
     } catch (error) {
       console.error('Error analyzing playlist:', error)
@@ -478,7 +476,7 @@ export function SetupClient({ accessToken }: SetupClientProps) {
             <PlaylistSearch accessToken={accessToken} onSelect={handlePlaylistSelect} />
 
             {/* Artist Skip Notice */}
-            {selectedPlaylist && skipArtistQuestions && dominantArtist && (
+            {selectedPlaylist && skipArtistQuestions && dominantArtists.length > 0 && (
               <div className="mt-6 bg-yellow-900/30 border-2 border-yellow-500/50 rounded-lg p-6">
                 <div className="flex items-start gap-3">
                   <span className="text-3xl">📢</span>
@@ -490,10 +488,19 @@ export function SetupClient({ accessToken }: SetupClientProps) {
                       Playlist Notice
                     </h3>
                     <p className="text-yellow-200 mb-2">
-                      This playlist is dominated by <span className="font-bold text-yellow-300">{dominantArtist.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</span> ({'>'}65% of tracks).
+                      This playlist is dominated by{' '}
+                      {dominantArtists.map(({artist, percentage}, idx) => (
+                        <span key={artist}>
+                          <span className="font-bold text-yellow-300">
+                            {artist.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                          </span>
+                          {' '}({percentage.toFixed(1)}%)
+                          {idx < dominantArtists.length - 1 ? (idx === dominantArtists.length - 2 ? ' and ' : ', ') : ''}
+                        </span>
+                      ))}.
                     </p>
                     <p className="text-yellow-100">
-                      <span className="font-semibold">"Who is the artist?"</span> questions will be skipped to keep the game challenging!
+                      <span className="font-semibold">"Who is the artist?"</span> questions will only use tracks from other artists to keep the game challenging!
                     </p>
                   </div>
                 </div>
@@ -501,7 +508,10 @@ export function SetupClient({ accessToken }: SetupClientProps) {
             )}
 
             {selectedPlaylist && (
-              <div className="mt-8 flex justify-center">
+              <div className="mt-8 flex flex-col items-center gap-2">
+                <p className="text-gray-400 text-sm" style={{ fontFamily: 'var(--font-geist-sans)' }}>
+                  Select playlist
+                </p>
                 <button
                   onClick={handleStartGame}
                   className="text-white font-bold py-4 px-12 rounded-full text-lg transition-all duration-300 transform hover:scale-105"
@@ -519,7 +529,7 @@ export function SetupClient({ accessToken }: SetupClientProps) {
                     e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
                   }}
                 >
-                  Let's play!
+                  NEXT
                 </button>
               </div>
             )}

@@ -46,10 +46,11 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [celebratingTeam, setCelebratingTeam] = useState<string | null>(null)
   const [showNoAnswerDialog, setShowNoAnswerDialog] = useState(false)
   const [showAlbumArt, setShowAlbumArt] = useState(false)
+  const [showContinueButton, setShowContinueButton] = useState(false)
   const [gameEndReason, setGameEndReason] = useState<'score_limit' | 'tracks_exhausted'>('tracks_exhausted')
   const [answerCountdown, setAnswerCountdown] = useState(5)
   const [skipArtistQuestions, setSkipArtistQuestions] = useState(false)
-  const [dominantArtist, setDominantArtist] = useState<string | null>(null)
+  const [dominantArtists, setDominantArtists] = useState<string[]>([])
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hasAnswerRef = useRef(false)
@@ -149,9 +150,9 @@ export function GameClient({ accessToken }: GameClientProps) {
       const interval = setInterval(() => {
         setAnswerCountdown(prev => {
           if (prev <= 1) {
-            // Time's up! Auto-trigger incorrect answer
+            // Time's up! Auto-trigger incorrect answer with Continue button
             clearInterval(interval)
-            handleBuzzIncorrect()
+            handleBuzzIncorrect(true)  // fromTimeout = true
             return 0
           }
           return prev - 1
@@ -204,39 +205,35 @@ export function GameClient({ accessToken }: GameClientProps) {
 
         setTracks(playlistTracks)
 
-        // Calculate artist distribution to determine if artist questions should be skipped
+        // Calculate artist distribution to identify dominant artists (>30%)
+        // Only count primary artist (first artist) to avoid inflated percentages from collaborations
         const artistCounts = new Map<string, number>()
         playlistTracks.forEach(track => {
-          track.artists.forEach(artist => {
-            const artistName = artist.name.toLowerCase().trim()
-            artistCounts.set(artistName, (artistCounts.get(artistName) || 0) + 1)
-          })
-        })
-
-        // Find the most common artist
-        let maxCount = 0
-        let mostCommonArtist = ''
-        artistCounts.forEach((count, artist) => {
-          if (count > maxCount) {
-            maxCount = count
-            mostCommonArtist = artist
+          if (track.artists.length > 0) {
+            const primaryArtist = track.artists[0].name.toLowerCase().trim()
+            artistCounts.set(primaryArtist, (artistCounts.get(primaryArtist) || 0) + 1)
           }
         })
 
-        // Check if dominant artist has more than 65% of tracks
-        const dominancePercentage = (maxCount / playlistTracks.length) * 100
-        const shouldSkipArtistQuestions = dominancePercentage > 65
+        // Find ALL artists with more than 30% of tracks
+        const dominantArtistsList: string[] = []
+        artistCounts.forEach((count, artist) => {
+          const percentage = (count / playlistTracks.length) * 100
+          if (percentage > 30) {
+            dominantArtistsList.push(artist)
+          }
+        })
 
-        setSkipArtistQuestions(shouldSkipArtistQuestions)
-        if (shouldSkipArtistQuestions) {
-          setDominantArtist(mostCommonArtist)
-        }
+        const hasDominantArtists = dominantArtistsList.length > 0
 
-        // Initialize question generator
+        setSkipArtistQuestions(hasDominantArtists)
+        setDominantArtists(dominantArtistsList)
+
+        // Initialize question generator with dominant artists info
         const generator = new QuestionGenerator({
           tracks: playlistTracks,
           lastFmApiKey: process.env.NEXT_PUBLIC_LASTFM_API_KEY,
-          skipArtistQuestions: shouldSkipArtistQuestions
+          dominantArtists: hasDominantArtists ? dominantArtistsList : undefined
         })
 
         // Validate playlist has sufficient data
@@ -249,7 +246,15 @@ export function GameClient({ accessToken }: GameClientProps) {
 
         questionGeneratorRef.current = generator
       } catch (error) {
-        console.error('Failed to load tracks:', error)
+        // Check if it's an authentication error
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+          alert('Your session has expired. Please log in again.')
+          router.push('/')
+        } else {
+          alert('Failed to load game. Please try again.')
+          router.push('/setup')
+        }
       } finally {
         setLoading(false)
       }
@@ -653,7 +658,7 @@ export function GameClient({ accessToken }: GameClientProps) {
     }, albumArtDelay)
   }
 
-  const handleBuzzIncorrect = () => {
+  const handleBuzzIncorrect = (fromTimeout: boolean = false) => {
     if (!buzzedTeam) return
 
     hasAnswerRef.current = true
@@ -667,14 +672,24 @@ export function GameClient({ accessToken }: GameClientProps) {
     wrongBuzzer.load()
     wrongBuzzer.play().catch(err => console.error('❌ Buzzer play failed:', err))
 
-    // Show album art with correct answer (stays until user clicks Continue)
+    // Show album art with correct answer
     setShowAlbumArt(true)
+    setShowContinueButton(fromTimeout)  // Only show Continue button if timeout
     setBuzzedTeam(null)
     setShowAnswerPrompt(false)
+
+    // If not from timeout (manual No click), auto-advance after delay
+    if (!fromTimeout) {
+      setTimeout(() => {
+        setShowAlbumArt(false)
+        handleNextQuestion()
+      }, 3000)
+    }
   }
 
   const handleAlbumArtContinue = () => {
     setShowAlbumArt(false)
+    setShowContinueButton(false)
     handleNextQuestion()
   }
 
@@ -866,13 +881,7 @@ export function GameClient({ accessToken }: GameClientProps) {
                       <>
                         {/* Upper team question - rotated 180° */}
                         <div className="absolute top-2 sm:top-4 left-0 right-0 px-4 pointer-events-none">
-                          <div className="flex items-center justify-center gap-3 sm:gap-4 rotate-180">
-                            {/* Spacing to balance the layout */}
-                            {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
-                              <div className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums opacity-0" style={{ fontFamily: 'var(--font-vt323)' }}>
-                                {Math.ceil(duration - currentTime)}
-                              </div>
-                            )}
+                          <div className="flex items-center justify-center gap-3 sm:gap-4 rotate-180 relative">
                             <div className={`text-yellow-400 font-bold text-center max-w-4xl transition-all duration-300 ${isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 ? 'text-3xl sm:text-4xl md:text-5xl animate-pulse-strong' : 'text-3xl'}`} style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
                               {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
                                 /^(song|artist)$/i.test(part) ? (
@@ -880,9 +889,9 @@ export function GameClient({ accessToken }: GameClientProps) {
                                 ) : part
                               )}
                             </div>
-                            {/* Countdown timer for upper team */}
+                            {/* Countdown timer for upper team - absolute positioned to not affect layout */}
                             {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
-                              <div className="animate-pulse">
+                              <div className="absolute right-4 animate-pulse">
                                 <div
                                   className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums"
                                   style={{
@@ -900,13 +909,7 @@ export function GameClient({ accessToken }: GameClientProps) {
 
                         {/* Lower team question - normal orientation */}
                         <div className="absolute bottom-2 sm:bottom-4 left-0 right-0 px-4 pointer-events-none">
-                          <div className="flex items-center justify-center gap-3 sm:gap-4">
-                            {/* Spacing to balance the layout */}
-                            {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
-                              <div className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums opacity-0" style={{ fontFamily: 'var(--font-vt323)' }}>
-                                {Math.ceil(duration - currentTime)}
-                              </div>
-                            )}
+                          <div className="flex items-center justify-center gap-3 sm:gap-4 relative">
                             <div className={`text-yellow-400 font-bold text-center max-w-4xl transition-all duration-300 ${isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 ? 'text-3xl sm:text-4xl md:text-5xl animate-pulse-strong' : 'text-3xl'}`} style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
                               {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
                                 /^(song|artist)$/i.test(part) ? (
@@ -914,9 +917,9 @@ export function GameClient({ accessToken }: GameClientProps) {
                                 ) : part
                               )}
                             </div>
-                            {/* Countdown timer for lower team */}
+                            {/* Countdown timer - absolute positioned to not affect layout */}
                             {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
-                              <div className="animate-pulse">
+                              <div className="absolute right-4 animate-pulse">
                                 <div
                                   className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums"
                                   style={{
@@ -939,21 +942,41 @@ export function GameClient({ accessToken }: GameClientProps) {
                 {/* Album art when answer is revealed - covers entire screen with cassette gradient, rotated 90 degrees */}
                 {showAlbumArt && currentQuestion && !showAnswerPrompt && (
                   <div className="fixed inset-0 cassette-gradient z-[150] flex flex-col items-center justify-center gap-3 sm:gap-4">
-                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex flex-row items-center gap-8">
-                      {/* Continue button on the left */}
-                      <button
-                        onClick={handleAlbumArtContinue}
-                        className="text-white font-bold py-4 px-12 sm:py-6 sm:px-16 rounded-full text-2xl sm:text-3xl transition-all duration-300 touch-manipulation shadow-2xl"
-                        style={{
-                          backgroundColor: 'var(--neon-pink)',
-                          fontFamily: 'var(--font-righteous)',
-                          boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
-                        }}
-                      >
-                        Continue →
-                      </button>
+                    <div className="rotate-90 scale-75 sm:scale-90 md:scale-100 flex flex-col items-center gap-2">
+                      <div className="flex flex-row items-center gap-8">
+                        {/* Continue button on the left - only show for timeout */}
+                        {showContinueButton && (
+                          <button
+                            onClick={handleAlbumArtContinue}
+                            className="text-white font-bold py-4 px-12 sm:py-6 sm:px-16 rounded-full text-2xl sm:text-3xl transition-all duration-300 touch-manipulation shadow-2xl"
+                            style={{
+                              backgroundColor: 'var(--neon-pink)',
+                              fontFamily: 'var(--font-righteous)',
+                              boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
+                            }}
+                          >
+                            Continue →
+                          </button>
+                        )}
 
-                      <AlbumArtDisplay track={currentQuestion.track} />
+                        <AlbumArtDisplay track={currentQuestion.track} />
+                      </div>
+
+                      {/* Songs remaining warning - discreet but alarming */}
+                      {tracks.length - questionIndex - 1 < 5 && tracks.length - questionIndex - 1 > 0 && (
+                        <div
+                          className="text-3xl sm:text-4xl font-bold animate-pulse-strong px-6 py-3 rounded text-center w-[280px] sm:w-[352px] md:w-[416px]"
+                          style={{
+                            fontFamily: 'var(--font-vt323)',
+                            color: '#FFE600',
+                            backgroundColor: 'rgba(255, 230, 0, 0.2)',
+                            border: '3px solid #FFE600',
+                            textShadow: '0 0 20px #FFE600, 0 0 40px #FFE600, 0 0 60px #FFE600',
+                          }}
+                        >
+                          ⚠️ {tracks.length - questionIndex - 1} {tracks.length - questionIndex - 1 === 1 ? 'song' : 'songs'} left
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

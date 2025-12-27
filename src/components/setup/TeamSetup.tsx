@@ -217,25 +217,27 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
         })}
       </div>
 
-      <button
-        onClick={handleComplete}
-        className="w-full text-white font-bold py-4 px-8 rounded-full text-lg transition-all duration-300 transform hover:scale-105"
-        style={{
-          backgroundColor: 'var(--neon-pink)',
-          fontFamily: 'var(--font-righteous)',
-          boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
-          e.currentTarget.style.boxShadow = '0 0 30px var(--hot-magenta), 0 0 60px var(--hot-magenta)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = 'var(--neon-pink)';
-          e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
-        }}
-      >
-        Let's play!
-      </button>
+      <div className="flex flex-col items-center">
+        <button
+          onClick={handleComplete}
+          className="w-full text-white font-bold py-4 px-8 rounded-full text-lg transition-all duration-300 transform hover:scale-105"
+          style={{
+            backgroundColor: 'var(--neon-pink)',
+            fontFamily: 'var(--font-righteous)',
+            boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
+            e.currentTarget.style.boxShadow = '0 0 30px var(--hot-magenta), 0 0 60px var(--hot-magenta)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--neon-pink)';
+            e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
+          }}
+        >
+          NEXT
+        </button>
+      </div>
     </div>
   )
 }

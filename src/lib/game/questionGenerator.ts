@@ -6,21 +6,21 @@ import { deduplicateStrings, shuffleArray } from '../utils/deduplication'
 export interface QuestionGeneratorOptions {
   tracks: SpotifyTrack[]
   lastFmApiKey?: string
-  skipArtistQuestions?: boolean
+  dominantArtists?: string[]
 }
 
 export class QuestionGenerator {
   private tracks: SpotifyTrack[]
   private lastFmClient: LastFmClient | null
   private validationResult: { isValid: boolean; warnings: string[] }
-  private skipArtistQuestions: boolean
+  private dominantArtists: string[]
 
   constructor(options: QuestionGeneratorOptions) {
     this.tracks = options.tracks
     this.lastFmClient = options.lastFmApiKey
       ? new LastFmClient(options.lastFmApiKey)
       : null
-    this.skipArtistQuestions = options.skipArtistQuestions || false
+    this.dominantArtists = options.dominantArtists || []
     this.validationResult = this.validatePlaylistData()
   }
 
@@ -127,8 +127,12 @@ export class QuestionGenerator {
       },
     ]
 
-    // Only add artist question if not skipping artist questions
-    if (!this.skipArtistQuestions) {
+    // Check if this track is from any dominant artist
+    const trackArtist = track.artists[0]?.name.toLowerCase().trim()
+    const isDominantArtist = this.dominantArtists.includes(trackArtist)
+
+    // Only add artist question if track is NOT from a dominant artist
+    if (!isDominantArtist) {
       questions.push({
         question: 'Who is the artist?',
         correctAnswer: track.artists[0]?.name || 'Unknown',
@@ -166,8 +170,12 @@ export class QuestionGenerator {
       })
     }
 
-    // Artist questions - need 4+ unique artists (skip if flag is set)
-    if (!this.skipArtistQuestions) {
+    // Artist questions - need 4+ unique artists
+    // Only add if track is NOT from a dominant artist
+    const trackArtist = track.artists[0]?.name.toLowerCase().trim()
+    const isDominantArtist = this.dominantArtists.includes(trackArtist)
+
+    if (!isDominantArtist) {
       const uniqueArtists = new Set(
         this.tracks.flatMap(t => t.artists.map(a => a.name.toLowerCase().trim()))
       )
