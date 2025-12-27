@@ -299,16 +299,6 @@ export function GameClient({ accessToken }: GameClientProps) {
   const handleStartGame = async () => {
     if (!questionGeneratorRef.current || tracks.length === 0) return
 
-    // Show notification if artist questions are being skipped
-    if (skipArtistQuestions && dominantArtist) {
-      const artistNameFormatted = dominantArtist
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ')
-
-      alert(`📢 Playlist Notice:\n\nThis playlist is dominated by ${artistNameFormatted} (>65% of tracks).\n\n"Who is the artist?" questions will be skipped to keep the game challenging!`)
-    }
-
     setGameStarted(true)
     await generateNextQuestion()
   }

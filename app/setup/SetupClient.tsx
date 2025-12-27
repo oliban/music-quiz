@@ -6,6 +6,7 @@ import { signOut } from 'next-auth/react'
 import { PlaylistSearch } from '@/src/components/setup/PlaylistSearch'
 import { TeamSetup } from '@/src/components/setup/TeamSetup'
 import { useGameStore } from '@/src/store/gameStore'
+import { SpotifyClient } from '@/src/lib/spotify/api'
 import type { SpotifyPlaylist } from '@/src/lib/spotify/types'
 import type { Team } from '@/src/store/gameStore'
 
@@ -113,6 +114,9 @@ export function SetupClient({ accessToken }: SetupClientProps) {
   const [showContinue, setShowContinue] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showTeamSetup, setShowTeamSetup] = useState(false)
+  const [skipArtistQuestions, setSkipArtistQuestions] = useState(false)
+  const [dominantArtist, setDominantArtist] = useState<string | null>(null)
+  const [loadingPlaylist, setLoadingPlaylist] = useState(false)
   const setPlaylist = useGameStore((state) => state.setPlaylist)
   const setTeams = useGameStore((state) => state.setTeams)
   const setupTouchZones = useGameStore((state) => state.setupTouchZones)
@@ -139,8 +143,47 @@ export function SetupClient({ accessToken }: SetupClientProps) {
     }
   }, [persistedPlaylist, persistedTeams, searchParams])
 
-  const handlePlaylistSelect = (playlist: SpotifyPlaylist) => {
+  const handlePlaylistSelect = async (playlist: SpotifyPlaylist) => {
     setSelectedPlaylist(playlist)
+    setLoadingPlaylist(true)
+    setSkipArtistQuestions(false)
+    setDominantArtist(null)
+
+    try {
+      // Fetch playlist tracks to analyze artist distribution
+      const client = new SpotifyClient(accessToken)
+      const tracks = await client.getPlaylistTracks(playlist.id)
+
+      // Calculate artist distribution
+      const artistCounts = new Map<string, number>()
+      tracks.forEach(track => {
+        track.artists.forEach(artist => {
+          const artistName = artist.name.toLowerCase().trim()
+          artistCounts.set(artistName, (artistCounts.get(artistName) || 0) + 1)
+        })
+      })
+
+      // Find the most common artist
+      let maxCount = 0
+      let mostCommonArtist = ''
+      artistCounts.forEach((count, artist) => {
+        if (count > maxCount) {
+          maxCount = count
+          mostCommonArtist = artist
+        }
+      })
+
+      // Check if dominant artist has more than 65% of tracks
+      const dominancePercentage = (maxCount / tracks.length) * 100
+      if (dominancePercentage > 65) {
+        setSkipArtistQuestions(true)
+        setDominantArtist(mostCommonArtist)
+      }
+    } catch (error) {
+      console.error('Error analyzing playlist:', error)
+    } finally {
+      setLoadingPlaylist(false)
+    }
   }
 
   const handleStartGame = () => {
@@ -433,6 +476,29 @@ export function SetupClient({ accessToken }: SetupClientProps) {
             )}
 
             <PlaylistSearch accessToken={accessToken} onSelect={handlePlaylistSelect} />
+
+            {/* Artist Skip Notice */}
+            {selectedPlaylist && skipArtistQuestions && dominantArtist && (
+              <div className="mt-6 bg-yellow-900/30 border-2 border-yellow-500/50 rounded-lg p-6">
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">📢</span>
+                  <div>
+                    <h3
+                      className="text-xl font-bold text-yellow-400 mb-2"
+                      style={{ fontFamily: 'var(--font-righteous)' }}
+                    >
+                      Playlist Notice
+                    </h3>
+                    <p className="text-yellow-200 mb-2">
+                      This playlist is dominated by <span className="font-bold text-yellow-300">{dominantArtist.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</span> ({'>'}65% of tracks).
+                    </p>
+                    <p className="text-yellow-100">
+                      <span className="font-semibold">"Who is the artist?"</span> questions will be skipped to keep the game challenging!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {selectedPlaylist && (
               <div className="mt-8 flex justify-center">

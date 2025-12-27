@@ -6,18 +6,21 @@ import { deduplicateStrings, shuffleArray } from '../utils/deduplication'
 export interface QuestionGeneratorOptions {
   tracks: SpotifyTrack[]
   lastFmApiKey?: string
+  skipArtistQuestions?: boolean
 }
 
 export class QuestionGenerator {
   private tracks: SpotifyTrack[]
   private lastFmClient: LastFmClient | null
   private validationResult: { isValid: boolean; warnings: string[] }
+  private skipArtistQuestions: boolean
 
   constructor(options: QuestionGeneratorOptions) {
     this.tracks = options.tracks
     this.lastFmClient = options.lastFmApiKey
       ? new LastFmClient(options.lastFmApiKey)
       : null
+    this.skipArtistQuestions = options.skipArtistQuestions || false
     this.validationResult = this.validatePlaylistData()
   }
 
@@ -122,11 +125,15 @@ export class QuestionGenerator {
         question: 'Name this song!',
         correctAnswer: track.name,
       },
-      {
+    ]
+
+    // Only add artist question if not skipping artist questions
+    if (!this.skipArtistQuestions) {
+      questions.push({
         question: 'Who is the artist?',
         correctAnswer: track.artists[0]?.name || 'Unknown',
-      },
-    ]
+      })
+    }
 
     const selected = questions[Math.floor(Math.random() * questions.length)]
 
@@ -159,16 +166,18 @@ export class QuestionGenerator {
       })
     }
 
-    // Artist questions - need 4+ unique artists
-    const uniqueArtists = new Set(
-      this.tracks.flatMap(t => t.artists.map(a => a.name.toLowerCase().trim()))
-    )
-    if (uniqueArtists.size >= 4) {
-      questionTypes.push({
-        question: 'Who is the artist?',
-        correctAnswer: track.artists[0]?.name || 'Unknown',
-        generateWrongAnswers: () => this.getRandomArtists(3, track.artists[0]?.name),
-      })
+    // Artist questions - need 4+ unique artists (skip if flag is set)
+    if (!this.skipArtistQuestions) {
+      const uniqueArtists = new Set(
+        this.tracks.flatMap(t => t.artists.map(a => a.name.toLowerCase().trim()))
+      )
+      if (uniqueArtists.size >= 4) {
+        questionTypes.push({
+          question: 'Who is the artist?',
+          correctAnswer: track.artists[0]?.name || 'Unknown',
+          generateWrongAnswers: () => this.getRandomArtists(3, track.artists[0]?.name),
+        })
+      }
     }
 
     // Add trivia questions if Last.fm is available
