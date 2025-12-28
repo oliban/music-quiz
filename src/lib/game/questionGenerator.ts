@@ -110,7 +110,9 @@ export class QuestionGenerator {
   }
 
   async generateQuestion(currentTrack: SpotifyTrack, questionIndex: number): Promise<GameQuestion> {
-    const questionType: 'buzz-in' | 'drag-to-corner' = questionIndex % 2 === 0 ? 'buzz-in' : 'drag-to-corner'
+    // In relaxed mode (dominantArtists includes 'all'), only generate buzz-in questions
+    const relaxedMode = this.dominantArtists.includes('all')
+    const questionType: 'buzz-in' | 'drag-to-corner' = relaxedMode || questionIndex % 2 === 0 ? 'buzz-in' : 'drag-to-corner'
 
     if (questionType === 'buzz-in') {
       return this.generateBuzzInQuestion(currentTrack)

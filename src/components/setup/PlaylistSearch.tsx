@@ -173,14 +173,17 @@ export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: Playl
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4">
+    <div className="w-full">
       <div className="mb-4">
-        <label
-          className="block text-white text-lg mb-2 font-bold"
-          style={{ fontFamily: 'var(--font-righteous)' }}
-        >
-          Search for a Playlist
-        </label>
+        <div className="flex items-center gap-3 mb-2">
+          <span className="text-2xl">🎵</span>
+          <label
+            className="text-white text-xl font-bold"
+            style={{ fontFamily: 'var(--font-righteous)' }}
+          >
+            Search for a Playlist
+          </label>
+        </div>
         <input
           type="text"
           placeholder="Search for playlists..."

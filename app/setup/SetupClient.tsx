@@ -120,6 +120,8 @@ export function SetupClient({ accessToken }: SetupClientProps) {
   const setPlaylist = useGameStore((state) => state.setPlaylist)
   const setTeams = useGameStore((state) => state.setTeams)
   const setupTouchZones = useGameStore((state) => state.setupTouchZones)
+  const gameMode = useGameStore((state) => state.gameMode)
+  const setGameMode = useGameStore((state) => state.setGameMode)
   const router = useRouter()
 
   // Get unique team names from history
@@ -257,6 +259,45 @@ export function SetupClient({ accessToken }: SetupClientProps) {
               <span className="text-blue-400 font-bold mt-1">🎵</span>
               <span><span className="text-white font-semibold">Song Length:</span> Each song plays for <span className="text-blue-400 font-bold">30 seconds max</span></span>
             </p>
+          </div>
+        </div>
+
+        {/* Game Mode Selection */}
+        <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">🎮</span>
+            <h2
+              className="text-xl font-bold text-white"
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              Game Mode
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => setGameMode('standard')}
+              className={`p-4 rounded-lg border-2 transition-all ${
+                gameMode === 'standard'
+                  ? 'border-neon-pink bg-neon-pink/20'
+                  : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
+              }`}
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              <div className="text-white font-bold text-lg mb-2">Standard</div>
+              <div className="text-gray-300 text-sm">Buzz-in + Multiple choice questions</div>
+            </button>
+            <button
+              onClick={() => setGameMode('relaxed')}
+              className={`p-4 rounded-lg border-2 transition-all ${
+                gameMode === 'relaxed'
+                  ? 'border-neon-pink bg-neon-pink/20'
+                  : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
+              }`}
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              <div className="text-white font-bold text-lg mb-2">Relaxed</div>
+              <div className="text-gray-300 text-sm">Buzz-in questions only</div>
+            </button>
           </div>
         </div>
 
@@ -426,13 +467,16 @@ export function SetupClient({ accessToken }: SetupClientProps) {
         )}
 
         {persistedTeams.length > 0 && !persistedPlaylist && !showContinue && (
-          <div className="mb-8 p-6 bg-gray-800/80 rounded-lg border-2 border-neon-pink/30">
-            <h2
-              className="text-2xl font-bold text-white mb-4"
-              style={{ fontFamily: 'var(--font-righteous)' }}
-            >
-              Teams Ready!
-            </h2>
+          <div className="mb-8 p-6 bg-gray-800/80 rounded-lg border border-gray-700">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl">✅</span>
+              <h2
+                className="text-xl font-bold text-white"
+                style={{ fontFamily: 'var(--font-righteous)' }}
+              >
+                Teams Ready!
+              </h2>
+            </div>
             <p className="text-gray-300 mb-2">
               <span className="text-green-400 font-bold">
                 {persistedTeams.map(t => t.name).join(' vs ')}
@@ -452,22 +496,28 @@ export function SetupClient({ accessToken }: SetupClientProps) {
         )}
 
         {showTeamSetup && (
-          <TeamSetup onComplete={() => {
-            setShowTeamSetup(false)
-          }} />
+          <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
+            <TeamSetup onComplete={() => {
+              setShowTeamSetup(false)
+            }} />
+          </div>
         )}
 
         {!showContinue && (
           <>
             {persistedTeams.length === 0 && !showTeamSetup && (
-              <TeamSetup onComplete={() => {
-                // Teams are now set up, component will re-render
-              }} />
+              <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
+                <TeamSetup onComplete={() => {
+                  // Teams are now set up, component will re-render
+                }} />
+              </div>
             )}
 
             {persistedTeams.length > 0 && !showTeamSetup && (
               <>
-                <PlaylistSearch accessToken={accessToken} onSelect={handlePlaylistSelect} />
+                <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
+                  <PlaylistSearch accessToken={accessToken} onSelect={handlePlaylistSelect} />
+                </div>
 
             {/* Artist Skip Notice */}
             {selectedPlaylist && skipArtistQuestions && dominantArtists.length > 0 && (

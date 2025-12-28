@@ -24,6 +24,7 @@ export function GameClient({ accessToken }: GameClientProps) {
   const playlist = useGameStore((state) => state.playlist)
   const teams = useGameStore((state) => state.teams)
   const touchZones = useGameStore((state) => state.touchZones)
+  const gameMode = useGameStore((state) => state.gameMode)
   const [audioLoaded, setAudioLoaded] = useState(false)
   const [tracks, setTracks] = useState<SpotifyTrack[]>([])
   const [currentQuestion, setCurrentQuestion] = useState<GameQuestion | null>(null)
@@ -226,14 +227,18 @@ export function GameClient({ accessToken }: GameClientProps) {
 
         const hasDominantArtists = dominantArtistsList.length > 0
 
-        setSkipArtistQuestions(hasDominantArtists)
+        // Skip artist/multiple choice questions if:
+        // 1. Game mode is 'relaxed' (user preference)
+        // 2. OR there are dominant artists in the playlist (automatic)
+        const shouldSkip = gameMode === 'relaxed' || hasDominantArtists
+        setSkipArtistQuestions(shouldSkip)
         setDominantArtists(dominantArtistsList)
 
         // Initialize question generator with dominant artists info
         const generator = new QuestionGenerator({
           tracks: playlistTracks,
           lastFmApiKey: process.env.NEXT_PUBLIC_LASTFM_API_KEY,
-          dominantArtists: hasDominantArtists ? dominantArtistsList : undefined
+          dominantArtists: shouldSkip ? (dominantArtistsList.length > 0 ? dominantArtistsList : ['all']) : undefined
         })
 
         // Validate playlist has sufficient data
@@ -383,9 +388,38 @@ export function GameClient({ accessToken }: GameClientProps) {
     }
 
     try {
-      audioRef.current.src = previewUrl
-      audioRef.current.load()
-      await audioRef.current.play()
+      const audio = audioRef.current
+
+      // Set volume explicitly to ensure it's not muted
+      audio.volume = 1.0
+
+      // Set source and load
+      audio.src = previewUrl
+      audio.load()
+
+      // Wait for audio to be ready before playing (iOS fix)
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Audio load timeout')), 5000)
+
+        const onCanPlay = () => {
+          clearTimeout(timeout)
+          audio.removeEventListener('canplay', onCanPlay)
+          audio.removeEventListener('error', onError)
+          resolve()
+        }
+
+        const onError = (e: Event) => {
+          clearTimeout(timeout)
+          audio.removeEventListener('canplay', onCanPlay)
+          audio.removeEventListener('error', onError)
+          reject(e)
+        }
+
+        audio.addEventListener('canplay', onCanPlay, { once: true })
+        audio.addEventListener('error', onError, { once: true })
+      })
+
+      await audio.play()
       setIsPlaying(true)
       trackHasStartedRef.current = false
     } catch (error: any) {

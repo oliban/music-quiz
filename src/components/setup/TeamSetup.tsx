@@ -149,13 +149,16 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h2
-        className="text-3xl font-bold text-white mb-4"
-        style={{ fontFamily: 'var(--font-righteous)' }}
-      >
-        Team Setup
-      </h2>
+    <>
+      <div className="flex items-center gap-3 mb-4">
+        <span className="text-2xl">👥</span>
+        <h2
+          className="text-xl font-bold text-white"
+          style={{ fontFamily: 'var(--font-righteous)' }}
+        >
+          Team Setup
+        </h2>
+      </div>
 
       <div className="space-y-12 mb-6">
         {teamNames.map((name, index) => {
@@ -238,6 +241,6 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
           NEXT
         </button>
       </div>
-    </div>
+    </>
   )
 }
