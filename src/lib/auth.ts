@@ -38,35 +38,46 @@ export const authOptions: NextAuthOptions = {
       session.accessToken = token.accessToken as string
       return session
     },
+    async redirect({ url, baseUrl }) {
+      // After successful login, redirect to test-audio page
+      if (url === baseUrl || url === `${baseUrl}/`) {
+        return `${baseUrl}/test-audio`
+      }
+      // Allows relative callback URLs
+      if (url.startsWith('/')) return `${baseUrl}${url}`
+      // Allows callback URLs on the same origin
+      if (new URL(url).origin === baseUrl) return url
+      return baseUrl
+    },
   },
   pages: {
     signIn: '/',
   },
   cookies: {
     sessionToken: {
-      name: `__Secure-next-auth.session-token`,
+      name: 'next-auth.session-token',
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: true,
+        secure: process.env.NODE_ENV === 'production',
       },
     },
     callbackUrl: {
-      name: `__Secure-next-auth.callback-url`,
+      name: 'next-auth.callback-url',
       options: {
         sameSite: 'lax',
         path: '/',
-        secure: true,
+        secure: process.env.NODE_ENV === 'production',
       },
     },
     csrfToken: {
-      name: `__Host-next-auth.csrf-token`,
+      name: 'next-auth.csrf-token',
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: true,
+        secure: process.env.NODE_ENV === 'production',
       },
     },
   },
