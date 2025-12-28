@@ -738,7 +738,7 @@ export function GameClient({ accessToken }: GameClientProps) {
   }
 
   return (
-    <div className="min-h-screen cassette-gradient relative overflow-hidden">
+    <div className="min-h-screen cassette-gradient relative overflow-hidden fixed inset-0" style={{ touchAction: 'none' }}>
       {/* Logout button - only on start page */}
       {!gameStarted && !gameCompleted && (
         <button

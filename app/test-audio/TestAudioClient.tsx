@@ -31,20 +31,37 @@ export function TestAudioClient({ accessToken }: TestAudioClientProps) {
         },
       })
 
+      let allTracks = []
+
       if (!response.ok) {
-        throw new Error(`Failed to fetch top tracks: ${response.status}`)
+        if (response.status === 403) {
+          // Fallback: Use search to find a popular track instead
+          setTestStatus('Using a popular track for testing...')
+          const searchResponse = await fetch('https://api.spotify.com/v1/search?q=top%20hits&type=track&limit=50', {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          })
+
+          if (searchResponse.ok) {
+            const searchData = await searchResponse.json()
+            allTracks = searchData.tracks?.items || []
+          }
+        } else {
+          throw new Error(`Failed to fetch top tracks: ${response.status}`)
+        }
+      } else {
+        const data = await response.json()
+        allTracks = data.items || []
       }
 
-      const data = await response.json()
-      const allTracks = data.items || []
-
       if (allTracks.length === 0) {
-        setTestStatus('No top tracks found. Listen to more music on Spotify first!')
+        setTestStatus('No tracks available for testing. Click "Continue to Setup" to proceed.')
         setIsTestingAudio(false)
         return
       }
 
-      // Use top 10 tracks
+      // Use top 10 tracks (or first 10 from search)
       const top10 = allTracks.slice(0, 10)
 
       setTestStatus('Extracting preview URL from Spotify embed...')
