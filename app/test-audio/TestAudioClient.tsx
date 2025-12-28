@@ -35,9 +35,9 @@ export function TestAudioClient({ accessToken }: TestAudioClientProps) {
 
       if (!response.ok) {
         if (response.status === 403) {
-          // Fallback: Use search to find a popular track instead
+          // Fallback 1: Use search to find a popular track instead
           setTestStatus('Using a popular track for testing...')
-          const searchResponse = await fetch('https://api.spotify.com/v1/search?q=top%20hits&type=track&limit=50', {
+          const searchResponse = await fetch('https://api.spotify.com/v1/search?q=spotify&type=track&limit=50', {
             headers: {
               Authorization: `Bearer ${accessToken}`,
             },
@@ -46,6 +46,22 @@ export function TestAudioClient({ accessToken }: TestAudioClientProps) {
           if (searchResponse.ok) {
             const searchData = await searchResponse.json()
             allTracks = searchData.tracks?.items || []
+          }
+
+          // Fallback 2: If search also failed, try getting Today's Top Hits playlist
+          if (allTracks.length === 0) {
+            setTestStatus('Fetching popular tracks...')
+            // Today's Top Hits playlist ID (global, always available)
+            const playlistResponse = await fetch('https://api.spotify.com/v1/playlists/37i9dQZF1DXcBWIGoYBM5M/tracks?limit=50', {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            })
+
+            if (playlistResponse.ok) {
+              const playlistData = await playlistResponse.json()
+              allTracks = playlistData.items?.map((item: any) => item.track).filter((t: any) => t) || []
+            }
           }
         } else {
           throw new Error(`Failed to fetch top tracks: ${response.status}`)

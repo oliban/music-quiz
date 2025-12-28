@@ -1001,7 +1001,14 @@ export function GameClient({ accessToken }: GameClientProps) {
                 {/* Stage 1: Has the team answered? - Black plate with rotated content */}
                 {currentQuestion.type === 'buzz-in' && buzzedTeam && !showAnswerPrompt && (
                   <div className="absolute inset-0 flex items-center justify-center cassette-gradient z-[100]">
-                    <div className="rotate-90 flex flex-col items-center gap-6 sm:gap-8">
+                    {/* Flashing team color background */}
+                    <div
+                      className="absolute inset-0 animate-pulse-strong opacity-40"
+                      style={{
+                        backgroundColor: teams.find(t => t.id === buzzedTeam)?.color || '#FF6EC7'
+                      }}
+                    />
+                    <div className="rotate-90 flex flex-col items-center gap-6 sm:gap-8 relative z-10">
                       {/* Question text - constrained to neutral area width */}
                       <div
                         className="text-2xl sm:text-3xl md:text-4xl text-white font-bold text-center max-w-[250px] sm:max-w-[300px]"
