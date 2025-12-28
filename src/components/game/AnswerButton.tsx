@@ -58,12 +58,11 @@ export function AnswerButton({ answer, onDragEnd, isAnswered, isWrongAnswer = fa
         ${isDisabled ? 'opacity-30' : ''}
         ${isWrongAnswer ? 'border-red-500 border-4' : ''}
         ${isVisible && !isDisabled ? 'animate-fadeIn' : ''}
-        ${!isVisible ? 'opacity-0' : ''}
       `}
       style={{
         touchAction: 'none',
         backgroundColor: teamColor,
-        animationDelay: `${revealDelay}s`,
+        opacity: !isVisible ? 0 : undefined,
       }}
       data-team-id={teamId}
       onClick={handleClick}
