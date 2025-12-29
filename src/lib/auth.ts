@@ -14,6 +14,8 @@ const SPOTIFY_SCOPES = [
 
 async function refreshAccessToken(token: any) {
   try {
+    console.log('🔄 Attempting to refresh access token...')
+
     const basicAuth = Buffer.from(
       `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
     ).toString('base64')
@@ -33,8 +35,11 @@ async function refreshAccessToken(token: any) {
     const refreshedTokens = await response.json()
 
     if (!response.ok) {
+      console.error('❌ Token refresh failed:', refreshedTokens)
       throw refreshedTokens
     }
+
+    console.log('✅ Token refreshed successfully')
 
     return {
       ...token,
@@ -43,7 +48,7 @@ async function refreshAccessToken(token: any) {
       refreshToken: refreshedTokens.refresh_token ?? token.refreshToken, // Fall back to old refresh token
     }
   } catch (error) {
-    console.error('Error refreshing access token:', error)
+    console.error('❌ Error refreshing access token:', error)
     return {
       ...token,
       error: 'RefreshAccessTokenError',
@@ -68,25 +73,47 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account, user }) {
       // Initial sign in
       if (account && user) {
-        return {
+        console.log('🔐 Initial sign in - storing tokens')
+        const newToken = {
           ...token,
           accessToken: account.access_token,
           refreshToken: account.refresh_token,
           expiresAt: (account.expires_at ?? 0) * 1000, // Convert to milliseconds
           user,
         }
+        console.log('✅ Token stored, expires at:', new Date(newToken.expiresAt))
+        return newToken
       }
 
       // Return previous token if it hasn't expired yet
-      if (Date.now() < (token.expiresAt as number)) {
+      const expiresAt = token.expiresAt as number
+      const now = Date.now()
+      if (now < expiresAt) {
+        const timeUntilExpiry = Math.floor((expiresAt - now) / 1000 / 60)
+        console.log(`✅ Token still valid (expires in ${timeUntilExpiry} minutes)`)
         return token
       }
 
       // Token has expired, refresh it
+      console.log('⏰ Token expired, refreshing...')
       return refreshAccessToken(token)
     },
     async session({ session, token }) {
+      // Check if token refresh failed
+      if (token.error) {
+        console.error('Session error: Token refresh failed')
+        // Return session without access token to force re-authentication
+        return session
+      }
+
+      // Add access token to session
       session.accessToken = token.accessToken as string
+
+      // Log for debugging (remove in production later)
+      if (!session.accessToken) {
+        console.error('Session callback: No access token available')
+      }
+
       return session
     },
     async redirect({ url, baseUrl }) {
