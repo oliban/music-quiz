@@ -137,8 +137,6 @@ export function SetupClient({ accessToken }: SetupClientProps) {
   const setPlaylist = useGameStore((state) => state.setPlaylist)
   const setTeams = useGameStore((state) => state.setTeams)
   const setupTouchZones = useGameStore((state) => state.setupTouchZones)
-  const gameMode = useGameStore((state) => state.gameMode)
-  const setGameMode = useGameStore((state) => state.setGameMode)
   const pointsToWin = useGameStore((state) => state.pointsToWin)
   const setPointsToWin = useGameStore((state) => state.setPointsToWin)
   const triviaCategories = useGameStore((state) => state.triviaCategories)
@@ -329,45 +327,6 @@ export function SetupClient({ accessToken }: SetupClientProps) {
               <span className="text-purple-400 font-bold mt-1">🧠</span>
               <span><span className="text-white font-semibold">Trivia:</span> AI generates <span className="text-purple-400 font-bold">1 question</span> per song (maximizes coverage across playlist)</span>
             </p>
-          </div>
-        </div>
-
-        {/* Game Mode Selection */}
-        <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-2xl">🎮</span>
-            <h2
-              className="text-xl font-bold text-white"
-              style={{ fontFamily: 'var(--font-righteous)' }}
-            >
-              Game Mode
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => setGameMode('standard')}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                gameMode === 'standard'
-                  ? 'border-neon-pink bg-neon-pink/20'
-                  : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
-              }`}
-              style={{ fontFamily: 'var(--font-righteous)' }}
-            >
-              <div className="text-white font-bold text-lg mb-2">Standard</div>
-              <div className="text-gray-300 text-sm">Buzz-in + Multiple choice questions</div>
-            </button>
-            <button
-              onClick={() => setGameMode('relaxed')}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                gameMode === 'relaxed'
-                  ? 'border-neon-pink bg-neon-pink/20'
-                  : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
-              }`}
-              style={{ fontFamily: 'var(--font-righteous)' }}
-            >
-              <div className="text-white font-bold text-lg mb-2">Relaxed</div>
-              <div className="text-gray-300 text-sm">Buzz-in questions only</div>
-            </button>
           </div>
         </div>
 
