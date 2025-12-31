@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       if (!existingCats) return true // No trivia at all
 
       // Check if song has all requested categories
-      const missingCategories = requestedCategories.filter(cat => !existingCats.has(cat))
+      const missingCategories = requestedCategories.filter((cat: string) => !existingCats.has(cat))
       return missingCategories.length > 0 // Has some but not all
     })
 
