@@ -18,12 +18,13 @@ export interface TouchZone {
 }
 
 export interface GameQuestion {
-  type: 'buzz-in' | 'drag-to-corner'
+  type: 'buzz-in' | 'multiple-choice' | 'trivia'
   track: SpotifyTrack
   question: string
   correctAnswer: string
   options?: string[]
   optionRevealDelays?: number[]  // Delays in seconds for staggered option reveals
+  category?: string  // Trivia category
 }
 
 export interface GameResult {
@@ -55,6 +56,11 @@ interface GameState {
   teams: Team[]
   touchZones: TouchZone[]
   gameMode: 'standard' | 'relaxed'
+  pointsToWin: number
+
+  // Trivia
+  triviaCategories: string[]
+  triviaGenerationStatus: 'idle' | 'generating' | 'ready' | 'error'
 
   // Game state
   currentQuestion: GameQuestion | null
@@ -69,6 +75,9 @@ interface GameState {
   setPlaylist: (playlist: SpotifyPlaylist | null) => void
   setTeams: (teams: Team[]) => void
   setGameMode: (mode: 'standard' | 'relaxed') => void
+  setPointsToWin: (points: number) => void
+  setTriviaCategories: (categories: string[]) => void
+  setTriviaGenerationStatus: (status: 'idle' | 'generating' | 'ready' | 'error') => void
   setupTouchZones: () => void
   startGame: () => void
   nextQuestion: () => void
@@ -95,6 +104,9 @@ export const useGameStore = create<GameState>()(
       teams: [],
       touchZones: [],
       gameMode: 'standard',
+      pointsToWin: 5,
+      triviaCategories: [],
+      triviaGenerationStatus: 'idle',
       currentQuestion: null,
       currentTrackIndex: 0,
       gameStarted: false,
@@ -107,6 +119,12 @@ export const useGameStore = create<GameState>()(
       setTeams: (teams) => set({ teams }),
 
       setGameMode: (mode) => set({ gameMode: mode }),
+
+      setPointsToWin: (points) => set({ pointsToWin: points }),
+
+      setTriviaCategories: (categories) => set({ triviaCategories: categories }),
+
+      setTriviaGenerationStatus: (status) => set({ triviaGenerationStatus: status }),
 
       setupTouchZones: () => {
         const { teams } = get()

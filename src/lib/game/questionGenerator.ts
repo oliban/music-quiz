@@ -1,5 +1,6 @@
 import type { SpotifyTrack } from '../spotify/types'
 import type { GameQuestion } from '@/src/store/gameStore'
+import { useGameStore } from '@/src/store/gameStore'
 import { LastFmClient } from '../lastfm/api'
 import { deduplicateStrings, shuffleArray } from '../utils/deduplication'
 
@@ -14,6 +15,7 @@ export class QuestionGenerator {
   private lastFmClient: LastFmClient | null
   private validationResult: { isValid: boolean; warnings: string[] }
   private dominantArtists: string[]
+  private triviaCache: Map<string, any[]> = new Map()
 
   constructor(options: QuestionGeneratorOptions) {
     this.tracks = options.tracks
@@ -31,6 +33,10 @@ export class QuestionGenerator {
 
   public getWarnings(): string[] {
     return this.validationResult.warnings
+  }
+
+  public hasTriviaInCache(trackId: string): boolean {
+    return this.triviaCache.has(trackId)
   }
 
   private validatePlaylistData(): { isValid: boolean; warnings: string[] } {
@@ -110,14 +116,31 @@ export class QuestionGenerator {
   }
 
   async generateQuestion(currentTrack: SpotifyTrack, questionIndex: number): Promise<GameQuestion> {
-    // In relaxed mode (dominantArtists includes 'all'), only generate buzz-in questions
+    const triviaCategories = useGameStore.getState().triviaCategories || []
+
+    // If trivia is enabled, always try to use it if available
+    const shouldTryTrivia = triviaCategories.length > 0
+
+    console.log(`🎲 Question for "${currentTrack.name}": shouldTryTrivia=${shouldTryTrivia}, categories=${triviaCategories.length}`)
+
+    if (shouldTryTrivia) {
+      const triviaQ = await this.tryGetTriviaQuestion(currentTrack, triviaCategories)
+      if (triviaQ) {
+        console.log(`✅ Using trivia question for "${currentTrack.name}"`)
+        return triviaQ
+      }
+      console.log(`⚠️  No trivia available for "${currentTrack.name}", using standard question`)
+      // If trivia fetch fails, fall through to standard questions
+    }
+
+    // Standard question logic (buzz-in or multiple-choice)
     const relaxedMode = this.dominantArtists.includes('all')
-    const questionType: 'buzz-in' | 'drag-to-corner' = relaxedMode || questionIndex % 2 === 0 ? 'buzz-in' : 'drag-to-corner'
+    const questionType: 'buzz-in' | 'multiple-choice' = relaxedMode || questionIndex % 2 === 0 ? 'buzz-in' : 'multiple-choice'
 
     if (questionType === 'buzz-in') {
       return this.generateBuzzInQuestion(currentTrack)
     } else {
-      return await this.generateDragToCornerQuestion(currentTrack)
+      return await this.generateMultipleChoiceQuestion(currentTrack)
     }
   }
 
@@ -230,7 +253,7 @@ export class QuestionGenerator {
     return questionTypes
   }
 
-  private async generateDragToCornerQuestion(track: SpotifyTrack): Promise<GameQuestion> {
+  private async generateMultipleChoiceQuestion(track: SpotifyTrack): Promise<GameQuestion> {
     const questionTypes = await this.getAvailableQuestionTypes(track)
 
     if (questionTypes.length === 0) {
@@ -249,14 +272,14 @@ export class QuestionGenerator {
 
     // If insufficient unique answers, try another question type
     if (!validatedWrongAnswers) {
-      return this.generateDragToCornerQuestion(track)
+      return this.generateMultipleChoiceQuestion(track)
     }
 
     const options = shuffleArray([selected.correctAnswer, ...validatedWrongAnswers])
     const optionRevealDelays = this.generateOptionRevealDelays(options.length)
 
     return {
-      type: 'drag-to-corner',
+      type: 'multiple-choice',
       track,
       question: selected.question,
       correctAnswer: selected.correctAnswer,
@@ -312,5 +335,69 @@ export class QuestionGenerator {
   private getRandomItems<T>(array: T[], count: number): T[] {
     const shuffled = shuffleArray(array)
     return shuffled.slice(0, Math.min(count, array.length))
+  }
+
+  private async tryGetTriviaQuestion(
+    track: SpotifyTrack,
+    categories: string[]
+  ): Promise<GameQuestion | null> {
+    try {
+      // Check cache first
+      if (this.triviaCache.has(track.id)) {
+        const questions = this.triviaCache.get(track.id)!
+        const randomQ = questions[Math.floor(Math.random() * questions.length)]
+        console.log(`✅ Using cached trivia for "${track.name}" - ${randomQ.question}`)
+        return this.formatTriviaAsGameQuestion(track, randomQ)
+      }
+
+      // Fetch from API
+      console.log(`🔍 Fetching trivia from API for "${track.name}"...`)
+      const response = await fetch(
+        `/api/trivia/by-songs?ids=${track.id}&categories=${categories.join(',')}`
+      )
+
+      if (!response.ok) {
+        console.log(`❌ Trivia API returned ${response.status} for "${track.name}"`)
+        return null
+      }
+
+      const { trivia } = await response.json()
+
+      if (!trivia.length || !trivia[0].questions.length) {
+        console.log(`⚠️  No trivia data returned for "${track.name}"`)
+        return null
+      }
+
+      // Cache for future use
+      this.triviaCache.set(track.id, trivia[0].questions)
+      console.log(`💾 Cached ${trivia[0].questions.length} trivia questions for "${track.name}"`)
+
+      // Pick random question from available
+      const questions = trivia[0].questions
+      const randomQ = questions[Math.floor(Math.random() * questions.length)]
+
+      console.log(`🎯 TRIVIA PICKED UP: "${track.name}" - ${randomQ.question}`)
+      return this.formatTriviaAsGameQuestion(track, randomQ)
+    } catch (error) {
+      console.error('Failed to fetch trivia:', error)
+      return null  // Silent fail - use standard questions
+    }
+  }
+
+  private formatTriviaAsGameQuestion(track: SpotifyTrack, triviaQ: any): GameQuestion {
+    const allOptions = shuffleArray([
+      triviaQ.correctAnswer,
+      ...triviaQ.wrongAnswers.slice(0, 3)
+    ])
+
+    return {
+      type: 'trivia',
+      track,
+      question: triviaQ.question,
+      correctAnswer: triviaQ.correctAnswer,
+      options: allOptions,
+      optionRevealDelays: this.generateOptionRevealDelays(allOptions.length),
+      category: triviaQ.category,
+    }
   }
 }

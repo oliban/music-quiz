@@ -41,7 +41,7 @@ export function TeamZoneContent({
       {/* Content container */}
       <div className="max-w-4xl w-full">
         {/* Multiple choice buttons - Team-colored buttons with tap interaction */}
-        {currentQuestion.type === 'drag-to-corner' && currentQuestion.options && (
+        {(currentQuestion.type === 'multiple-choice' || currentQuestion.type === 'trivia') && currentQuestion.options && (
           <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-2 sm:mb-4 max-w-sm sm:max-w-md mx-auto">
             {currentQuestion.options.map((option, index) => (
               <AnswerButton

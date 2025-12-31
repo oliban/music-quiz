@@ -10,7 +10,7 @@ interface TouchZonesProps {
   disqualifiedTeams: Set<string>
   celebratingTeam: string | null
   onZoneTouch: (zoneId: string) => void
-  currentQuestionType?: 'buzz-in' | 'drag-to-corner' | null
+  currentQuestionType?: 'buzz-in' | 'multiple-choice' | 'trivia' | null
   buzzedTeam?: string | null
 }
 

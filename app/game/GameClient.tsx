@@ -52,6 +52,7 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [answerCountdown, setAnswerCountdown] = useState(5)
   const [skipArtistQuestions, setSkipArtistQuestions] = useState(false)
   const [dominantArtists, setDominantArtists] = useState<string[]>([])
+  const [songsWithTrivia, setSongsWithTrivia] = useState<Set<string>>(new Set())
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hasAnswerRef = useRef(false)
@@ -140,6 +141,50 @@ export function GameClient({ accessToken }: GameClientProps) {
     }
   }, [loading, tracks.length, gameStarted, gameCompleted])
 
+  // Poll for newly generated trivia during gameplay
+  useEffect(() => {
+    if (!gameStarted || gameCompleted || tracks.length === 0) return
+
+    const triviaCategories = useGameStore.getState().triviaCategories || []
+    if (triviaCategories.length === 0) return
+
+    const checkForNewTrivia = async () => {
+      try {
+        console.log(`🔄 Polling for new trivia... (checking ${tracks.length} songs)`)
+        const response = await fetch('/api/trivia/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ songIds: tracks.map(t => t.id) })
+        })
+        if (response.ok) {
+          const { idsWithTrivia } = await response.json()
+          const newCount = idsWithTrivia.length
+          const oldCount = songsWithTrivia.size
+
+          console.log(`📊 Poll result: ${newCount} songs have trivia (previously: ${oldCount})`)
+
+          if (newCount > oldCount) {
+            console.log(`🎉 New trivia available! ${newCount - oldCount} songs added (total: ${newCount})`)
+            setSongsWithTrivia(new Set(idsWithTrivia))
+          } else if (newCount === 0) {
+            console.log(`⏳ No trivia available yet, will check again in 15s`)
+          }
+        }
+      } catch (error) {
+        console.error('❌ Trivia polling failed:', error)
+      }
+    }
+
+    console.log('🚀 Starting trivia polling (checking immediately, then every 15s)')
+
+    // Check immediately on start
+    checkForNewTrivia()
+
+    // Then check every 15 seconds
+    const interval = setInterval(checkForNewTrivia, 15000)
+    return () => clearInterval(interval)
+  }, [gameStarted, gameCompleted, tracks.length])
+
   // Answer countdown timer for "Has answered?" dialog
   useEffect(() => {
     // Only run countdown when showing the "Has answered?" dialog
@@ -206,6 +251,25 @@ export function GameClient({ accessToken }: GameClientProps) {
 
         setTracks(playlistTracks)
 
+        // Check which songs have trivia available
+        const triviaCategories = useGameStore.getState().triviaCategories || []
+        if (triviaCategories.length > 0) {
+          try {
+            const response = await fetch('/api/trivia/check', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ songIds: playlistTracks.map(t => t.id) })
+            })
+            if (response.ok) {
+              const { idsWithTrivia } = await response.json()
+              console.log(`🎯 Found ${idsWithTrivia.length} songs with trivia available`)
+              setSongsWithTrivia(new Set(idsWithTrivia))
+            }
+          } catch (error) {
+            console.error('Failed to check trivia availability:', error)
+          }
+        }
+
         // Calculate artist distribution to identify dominant artists (>30%)
         // Only count primary artist (first artist) to avoid inflated percentages from collaborations
         const artistCounts = new Map<string, number>()
@@ -271,7 +335,8 @@ export function GameClient({ accessToken }: GameClientProps) {
   const checkWinCondition = (): { hasWinner: boolean; winnerId: string | null } => {
     // Always get fresh state from store to avoid stale state issues
     const currentTeams = useGameStore.getState().teams
-    const winningTeam = currentTeams.find(team => team.score >= 10)
+    const pointsToWin = useGameStore.getState().pointsToWin
+    const winningTeam = currentTeams.find(team => team.score >= pointsToWin)
     return {
       hasWinner: !!winningTeam,
       winnerId: winningTeam?.id || null
@@ -333,7 +398,35 @@ export function GameClient({ accessToken }: GameClientProps) {
       const unplayedIndices = tracks
         .map((_, i) => i)
         .filter(i => !playedTrackIndices.has(i))
-      trackIndex = unplayedIndices[Math.floor(Math.random() * unplayedIndices.length)]
+
+      // Prioritize tracks with trivia available
+      if (songsWithTrivia.size > 0) {
+        // Check which unplayed tracks have trivia
+        const tracksWithTriviaIndices: number[] = []
+        const tracksWithoutTriviaIndices: number[] = []
+
+        for (const idx of unplayedIndices) {
+          const track = tracks[idx]
+          if (songsWithTrivia.has(track.id)) {
+            tracksWithTriviaIndices.push(idx)
+          } else {
+            tracksWithoutTriviaIndices.push(idx)
+          }
+        }
+
+        console.log(`🎯 Prioritizing trivia: ${tracksWithTriviaIndices.length} with trivia, ${tracksWithoutTriviaIndices.length} without`)
+
+        // If we have tracks with trivia, pick from those first
+        if (tracksWithTriviaIndices.length > 0) {
+          trackIndex = tracksWithTriviaIndices[Math.floor(Math.random() * tracksWithTriviaIndices.length)]
+          console.log(`✅ Selected song with trivia: "${tracks[trackIndex].name}"`)
+        } else {
+          trackIndex = unplayedIndices[Math.floor(Math.random() * unplayedIndices.length)]
+          console.log(`⚠️  No trivia songs left, using standard selection`)
+        }
+      } else {
+        trackIndex = unplayedIndices[Math.floor(Math.random() * unplayedIndices.length)]
+      }
     } else {
       // Sequential mode
       trackIndex = questionIndex
@@ -429,7 +522,7 @@ export function GameClient({ accessToken }: GameClientProps) {
   }
 
   const handleAnswerDrag = (answer: string, x: number, y: number, draggingTeamId: string) => {
-    if (!currentQuestion || currentQuestion.type !== 'drag-to-corner' || answeredCorrectly) return
+    if (!currentQuestion || (currentQuestion.type !== 'multiple-choice' && currentQuestion.type !== 'trivia') || answeredCorrectly) return
 
     // In tap mode, teamId is always provided
     const droppedOnTeamId = draggingTeamId
@@ -756,6 +849,24 @@ export function GameClient({ accessToken }: GameClientProps) {
     }
   }
 
+  // Adaptive font sizing based on question length
+  const getQuestionFontSize = (questionText: string, isCountdown: boolean) => {
+    const length = questionText.length
+
+    if (isCountdown) {
+      // Countdown mode - larger but still adaptive
+      if (length > 80) return 'text-xl sm:text-2xl md:text-3xl'
+      if (length > 60) return 'text-2xl sm:text-3xl md:text-4xl'
+      return 'text-3xl sm:text-4xl md:text-5xl'
+    } else {
+      // Normal mode
+      if (length > 80) return 'text-lg sm:text-xl md:text-2xl'
+      if (length > 60) return 'text-xl sm:text-2xl md:text-3xl'
+      if (length > 40) return 'text-2xl sm:text-3xl md:text-4xl'
+      return 'text-3xl'
+    }
+  }
+
   if (!playlist || teams.length === 0) {
     return (
       <div className="min-h-screen cassette-gradient flex items-center justify-center">
@@ -933,7 +1044,7 @@ export function GameClient({ accessToken }: GameClientProps) {
                         {/* Upper team question - rotated 180° */}
                         <div className="absolute top-2 sm:top-4 left-0 right-0 px-4 pointer-events-none">
                           <div className="flex items-center justify-center gap-3 sm:gap-4 rotate-180 relative">
-                            <div className={`text-yellow-400 font-bold text-center max-w-4xl transition-all duration-300 ${isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 ? 'text-3xl sm:text-4xl md:text-5xl animate-pulse-strong' : 'text-3xl'}`} style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                            <div className={`text-yellow-400 font-bold text-center max-w-4xl transition-all duration-300 ${getQuestionFontSize(currentQuestion.question, isPlaying && duration - currentTime <= 10 && duration - currentTime > 0)} ${isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 ? 'animate-pulse-strong' : ''}`} style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
                               {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
                                 /^(song|artist)$/i.test(part) ? (
                                   <span key={i} className="text-white animate-pulse" style={{ textShadow: '0 0 30px rgba(255,255,255,1), 0 0 60px rgba(255,255,255,0.8), 0 0 90px rgba(255,255,255,0.6), 0 0 120px rgba(255,255,255,0.4)' }}>{part}</span>
@@ -961,7 +1072,7 @@ export function GameClient({ accessToken }: GameClientProps) {
                         {/* Lower team question - normal orientation */}
                         <div className="absolute bottom-2 sm:bottom-4 left-0 right-0 px-4 pointer-events-none">
                           <div className="flex items-center justify-center gap-3 sm:gap-4 relative">
-                            <div className={`text-yellow-400 font-bold text-center max-w-4xl transition-all duration-300 ${isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 ? 'text-3xl sm:text-4xl md:text-5xl animate-pulse-strong' : 'text-3xl'}`} style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                            <div className={`text-yellow-400 font-bold text-center max-w-4xl transition-all duration-300 ${getQuestionFontSize(currentQuestion.question, isPlaying && duration - currentTime <= 10 && duration - currentTime > 0)} ${isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 ? 'animate-pulse-strong' : ''}`} style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
                               {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
                                 /^(song|artist)$/i.test(part) ? (
                                   <span key={i} className="text-white animate-pulse" style={{ textShadow: '0 0 30px rgba(255,255,255,1), 0 0 60px rgba(255,255,255,0.8), 0 0 90px rgba(255,255,255,0.6), 0 0 120px rgba(255,255,255,0.4)' }}>{part}</span>

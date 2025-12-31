@@ -77,6 +77,23 @@ const BUZZER_SOUNDS = [
   '/sounds/short-horn.mp3',
 ]
 
+const TRIVIA_CATEGORIES = [
+  { id: 'band_info', name: 'Band Info', icon: '🎸', description: 'Formation, members, origins' },
+  { id: 'historical', name: 'Historical', icon: '📅', description: 'Events when released' },
+  { id: 'media', name: 'Media', icon: '🎬', description: 'Movies, TV, games' },
+  { id: 'production', name: 'Production', icon: '🎚️', description: 'Studio, producer' },
+  { id: 'awards', name: 'Awards', icon: '🏆', description: 'Grammys, certifications' },
+  { id: 'songwriting', name: 'Songwriting', icon: '✍️', description: 'Inspiration, story' },
+  { id: 'chart_performance', name: 'Charts', icon: '📊', description: 'Peak positions, records' },
+  { id: 'covers', name: 'Covers', icon: '🎭', description: 'Famous covers, samples' },
+  { id: 'music_video', name: 'Music Video', icon: '🎥', description: 'Director, concept' },
+  { id: 'live_performance', name: 'Live', icon: '🎤', description: 'Famous performances' },
+  { id: 'collaborations', name: 'Collaborations', icon: '🤝', description: 'Features, guests' },
+  { id: 'cultural_impact', name: 'Cultural Impact', icon: '🌍', description: 'Influence, memes' },
+  { id: 'album_context', name: 'Album', icon: '💿', description: 'Album context, B-sides' },
+  { id: 'controversies', name: 'Controversies', icon: '⚖️', description: 'Bans, lawsuits' },
+]
+
 function getRandomTeamNames(count: number): string[] {
   const shuffled = [...TEAM_NAME_SUGGESTIONS].sort(() => Math.random() - 0.5)
   return shuffled.slice(0, count)
@@ -122,6 +139,10 @@ export function SetupClient({ accessToken }: SetupClientProps) {
   const setupTouchZones = useGameStore((state) => state.setupTouchZones)
   const gameMode = useGameStore((state) => state.gameMode)
   const setGameMode = useGameStore((state) => state.setGameMode)
+  const pointsToWin = useGameStore((state) => state.pointsToWin)
+  const setPointsToWin = useGameStore((state) => state.setPointsToWin)
+  const triviaCategories = useGameStore((state) => state.triviaCategories)
+  const setTriviaCategories = useGameStore((state) => state.setTriviaCategories)
   const router = useRouter()
 
   // Get unique team names from history
@@ -186,14 +207,59 @@ export function SetupClient({ accessToken }: SetupClientProps) {
     }
   }
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     if (selectedPlaylist && persistedTeams.length > 0) {
       // Set playlist
       setPlaylist(selectedPlaylist)
       setupTouchZones()
 
+      // Trigger trivia generation in background (fire and forget)
+      console.log(`🎯 Trivia categories selected: ${triviaCategories.length}`, triviaCategories)
+      if (triviaCategories.length > 0) {
+        console.log(`🚀 Triggering trivia generation for ${selectedPlaylist.name}`)
+        triggerTriviaGeneration()
+      } else {
+        console.log(`⚠️ Skipping trivia generation - no categories selected`)
+      }
+
       // Navigate directly to game
       router.push('/game')
+    }
+  }
+
+  const triggerTriviaGeneration = async () => {
+    if (!selectedPlaylist) {
+      console.log('⚠️ No playlist selected, skipping trivia generation')
+      return
+    }
+
+    try {
+      console.log(`📡 Fetching tracks for playlist: ${selectedPlaylist.name}`)
+      // Fetch track metadata
+      const client = new SpotifyClient(accessToken)
+      const tracks = await client.getPlaylistTracks(selectedPlaylist.id)
+      console.log(`📡 Got ${tracks.length} tracks, calling trivia generation API...`)
+
+      // Call generation API (async, don't await)
+      fetch('/api/trivia/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          songs: tracks.map(t => ({
+            id: t.id,
+            name: t.name,
+            artist: t.artists[0]?.name || 'Unknown',
+            album: t.album.name,
+            releaseYear: t.album.release_date?.substring(0, 4),
+          })),
+          categories: triviaCategories,
+        }),
+      }).catch(err => {
+        console.error('Trivia generation failed:', err)
+        // Silently fail - game continues without trivia
+      })
+    } catch (error) {
+      console.error('Failed to trigger trivia generation:', error)
     }
   }
 
@@ -259,6 +325,10 @@ export function SetupClient({ accessToken }: SetupClientProps) {
               <span className="text-blue-400 font-bold mt-1">🎵</span>
               <span><span className="text-white font-semibold">Song Length:</span> Each song plays for <span className="text-blue-400 font-bold">30 seconds max</span></span>
             </p>
+            <p className="flex items-start gap-2">
+              <span className="text-purple-400 font-bold mt-1">🧠</span>
+              <span><span className="text-white font-semibold">Trivia:</span> AI generates <span className="text-purple-400 font-bold">1 question</span> per song (maximizes coverage across playlist)</span>
+            </p>
           </div>
         </div>
 
@@ -299,6 +369,123 @@ export function SetupClient({ accessToken }: SetupClientProps) {
               <div className="text-gray-300 text-sm">Buzz-in questions only</div>
             </button>
           </div>
+        </div>
+
+        {/* Points to Win Selection */}
+        <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">🎯</span>
+            <h2
+              className="text-xl font-bold text-white"
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              Points to Win
+            </h2>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            {[3, 5, 10].map(points => (
+              <button
+                key={points}
+                onClick={() => setPointsToWin(points)}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  pointsToWin === points
+                    ? 'border-neon-pink bg-neon-pink/20'
+                    : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
+                }`}
+                style={{ fontFamily: 'var(--font-righteous)' }}
+              >
+                <div className="text-white font-bold text-2xl mb-1">{points}</div>
+                <div className="text-gray-300 text-xs">
+                  {points === 3 ? 'Quick' : points === 5 ? 'Standard' : 'Extended'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Trivia Categories Selection */}
+        <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">🧠</span>
+            <h2
+              className="text-xl font-bold text-white"
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              Trivia Categories
+            </h2>
+          </div>
+          <p className="text-gray-300 text-sm mb-4">
+            Select categories for AI-generated trivia questions (up to 10 per song)
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
+            {TRIVIA_CATEGORIES.map(category => {
+              const isSelected = triviaCategories.includes(category.id)
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => {
+                    if (isSelected) {
+                      setTriviaCategories(triviaCategories.filter(id => id !== category.id))
+                    } else {
+                      setTriviaCategories([...triviaCategories, category.id])
+                    }
+                  }}
+                  className={`p-2 rounded-lg border-2 transition-all text-left ${
+                    isSelected
+                      ? 'border-neon-pink bg-neon-pink/20'
+                      : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">{category.icon}</span>
+                    <div
+                      className="font-bold text-white text-xs"
+                      style={{ fontFamily: 'var(--font-righteous)' }}
+                    >
+                      {category.name}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-400">{category.description}</div>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTriviaCategories(TRIVIA_CATEGORIES.map(c => c.id))}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              Select All
+            </button>
+            <button
+              onClick={() => {
+                // Randomly select 3-7 categories
+                const count = Math.floor(Math.random() * 5) + 3
+                const shuffled = [...TRIVIA_CATEGORIES].sort(() => Math.random() - 0.5)
+                setTriviaCategories(shuffled.slice(0, count).map(c => c.id))
+              }}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              🎲 Random
+            </button>
+            <button
+              onClick={() => setTriviaCategories([])}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+              style={{ fontFamily: 'var(--font-righteous)' }}
+            >
+              Clear All
+            </button>
+          </div>
+
+          {triviaCategories.length > 0 && (
+            <div className="mt-4 text-xs text-gray-400">
+              💡 Trivia will be generated in the background while you play
+            </div>
+          )}
         </div>
 
         {gameHistory.length > 0 && (
