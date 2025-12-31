@@ -314,9 +314,9 @@ export function GameClient({ accessToken }: GameClientProps) {
         }
 
         // Pre-fetch all trivia in one batch call for performance
-        const triviaCategories = useGameStore.getState().triviaCategories || []
-        if (triviaCategories.length > 0) {
-          await generator.prefetchAllTrivia(triviaCategories)
+        const selectedTriviaCategories = useGameStore.getState().triviaCategories || []
+        if (selectedTriviaCategories.length > 0) {
+          await generator.prefetchAllTrivia(selectedTriviaCategories)
         }
 
         questionGeneratorRef.current = generator
