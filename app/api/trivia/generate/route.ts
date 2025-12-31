@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // Build map of song ID -> existing categories
     const existingCategoriesMap = new Map<string, Set<string>>()
     existing.forEach(doc => {
-      const categories = new Set(doc.questions.map((q: any) => q.category))
+      const categories = new Set<string>(doc.questions.map((q: any) => q.category))
       existingCategoriesMap.set(doc.songSpotifyId, categories)
     })
 
