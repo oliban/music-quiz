@@ -313,6 +313,12 @@ export function GameClient({ accessToken }: GameClientProps) {
           return
         }
 
+        // Pre-fetch all trivia in one batch call for performance
+        const triviaCategories = useGameStore.getState().triviaCategories || []
+        if (triviaCategories.length > 0) {
+          await generator.prefetchAllTrivia(triviaCategories)
+        }
+
         questionGeneratorRef.current = generator
       } catch (error) {
         // Check if it's an authentication error

@@ -39,6 +39,38 @@ export class QuestionGenerator {
     return this.triviaCache.has(trackId)
   }
 
+  // Pre-fetch all trivia for the playlist in one batch call
+  public async prefetchAllTrivia(categories: string[]): Promise<void> {
+    if (categories.length === 0) return
+
+    try {
+      const trackIds = this.tracks.map(t => t.id).join(',')
+      console.log(`🚀 Pre-fetching trivia for ${this.tracks.length} songs...`)
+
+      const response = await fetch(
+        `/api/trivia/by-songs?ids=${trackIds}&categories=${categories.join(',')}`
+      )
+
+      if (!response.ok) {
+        console.log(`⚠️ Could not pre-fetch trivia (${response.status})`)
+        return
+      }
+
+      const { trivia } = await response.json()
+
+      // Cache all trivia
+      trivia.forEach((item: any) => {
+        if (item.questions && item.questions.length > 0) {
+          this.triviaCache.set(item.songSpotifyId, item.questions)
+        }
+      })
+
+      console.log(`✅ Cached trivia for ${trivia.length}/${this.tracks.length} songs`)
+    } catch (error) {
+      console.error('Failed to pre-fetch trivia:', error)
+    }
+  }
+
   private validatePlaylistData(): { isValid: boolean; warnings: string[] } {
     const warnings: string[] = []
 
@@ -341,47 +373,14 @@ export class QuestionGenerator {
     track: SpotifyTrack,
     categories: string[]
   ): Promise<GameQuestion | null> {
-    try {
-      // Check cache first
-      if (this.triviaCache.has(track.id)) {
-        const questions = this.triviaCache.get(track.id)!
-        const randomQ = questions[Math.floor(Math.random() * questions.length)]
-        console.log(`✅ Using cached trivia for "${track.name}" - ${randomQ.question}`)
-        return this.formatTriviaAsGameQuestion(track, randomQ)
-      }
-
-      // Fetch from API
-      console.log(`🔍 Fetching trivia from API for "${track.name}"...`)
-      const response = await fetch(
-        `/api/trivia/by-songs?ids=${track.id}&categories=${categories.join(',')}`
-      )
-
-      if (!response.ok) {
-        console.log(`❌ Trivia API returned ${response.status} for "${track.name}"`)
-        return null
-      }
-
-      const { trivia } = await response.json()
-
-      if (!trivia.length || !trivia[0].questions.length) {
-        console.log(`⚠️  No trivia data returned for "${track.name}"`)
-        return null
-      }
-
-      // Cache for future use
-      this.triviaCache.set(track.id, trivia[0].questions)
-      console.log(`💾 Cached ${trivia[0].questions.length} trivia questions for "${track.name}"`)
-
-      // Pick random question from available
-      const questions = trivia[0].questions
-      const randomQ = questions[Math.floor(Math.random() * questions.length)]
-
-      console.log(`🎯 TRIVIA PICKED UP: "${track.name}" - ${randomQ.question}`)
-      return this.formatTriviaAsGameQuestion(track, randomQ)
-    } catch (error) {
-      console.error('Failed to fetch trivia:', error)
-      return null  // Silent fail - use standard questions
+    // ONLY use cache - no API calls during gameplay for performance
+    if (!this.triviaCache.has(track.id)) {
+      return null  // No trivia available, use standard question
     }
+
+    const questions = this.triviaCache.get(track.id)!
+    const randomQ = questions[Math.floor(Math.random() * questions.length)]
+    return this.formatTriviaAsGameQuestion(track, randomQ)
   }
 
   private formatTriviaAsGameQuestion(track: SpotifyTrack, triviaQ: any): GameQuestion {
