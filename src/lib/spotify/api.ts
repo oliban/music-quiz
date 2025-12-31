@@ -3,6 +3,7 @@ import type {
   SpotifyTrack,
   SpotifySearchResponse,
   SpotifyPlaylistTracksResponse,
+  SpotifyApiError,
 } from './types'
 
 export class SpotifyClient {
@@ -22,7 +23,12 @@ export class SpotifyClient {
     })
 
     if (!response.ok) {
-      throw new Error(`Spotify API error: ${response.status} ${response.statusText}`)
+      const error: SpotifyApiError = {
+        status: response.status,
+        message: `Spotify API error: ${response.status} ${response.statusText}`,
+        isAuthorizationError: response.status === 403
+      }
+      throw error
     }
 
     return response.json()

@@ -48,3 +48,9 @@ export interface SpotifyPlaylistTracksResponse {
     track: SpotifyTrack
   }>
 }
+
+export interface SpotifyApiError {
+  status: number
+  message: string
+  isAuthorizationError: boolean
+}

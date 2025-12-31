@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import type { Session } from 'next-auth'
 
@@ -12,15 +12,23 @@ interface HeroSectionProps {
 
 export function HeroSection({ session }: HeroSectionProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isTouchDevice, setIsTouchDevice] = useState(true)
   const [showWarning, setShowWarning] = useState(false)
+  const [showAuthError, setShowAuthError] = useState(false)
 
   useEffect(() => {
     // Detect touch support
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
     setIsTouchDevice(hasTouch)
     setShowWarning(!hasTouch)
-  }, [])
+
+    // Check for OAuth callback error (403 from Spotify)
+    const error = searchParams.get('error')
+    if (error === 'OAuthCallback') {
+      setShowAuthError(true)
+    }
+  }, [searchParams])
 
   const handleButtonClick = () => {
     if (session) {
@@ -39,8 +47,39 @@ export function HeroSection({ session }: HeroSectionProps) {
       {/* Scan lines overlay */}
       <div className="retro-scanlines absolute inset-0" />
 
+      {/* OAuth Error (403 - Not Whitelisted) */}
+      {showAuthError && (
+        <div className="absolute top-4 left-4 right-4 z-20 max-w-2xl mx-auto">
+          <div className="bg-red-900/40 border-2 border-red-500/60 rounded-lg p-6 backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl">🔒</span>
+              <div className="text-left flex-1">
+                <h3
+                  className="text-xl font-bold text-red-400 mb-2"
+                  style={{ fontFamily: 'var(--font-righteous)' }}
+                >
+                  Access Restricted
+                </h3>
+                <p className="text-red-200 mb-2">
+                  This Spotify app is in Development Mode and you're not on the allowed users list.
+                </p>
+                <p className="text-red-100 font-semibold">
+                  Please contact the app author to be added to the whitelist.
+                </p>
+                <button
+                  onClick={() => setShowAuthError(false)}
+                  className="mt-3 text-red-400 hover:text-red-300 text-sm underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Non-Touch Device Warning - Top of page */}
-      {showWarning && (
+      {showWarning && !showAuthError && (
         <div className="absolute top-4 left-4 right-4 z-20 max-w-2xl mx-auto">
           <div className="bg-yellow-900/40 border-2 border-yellow-500/60 rounded-lg p-4 backdrop-blur-sm">
             <div className="flex items-start gap-3">

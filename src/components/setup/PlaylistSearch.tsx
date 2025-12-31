@@ -124,6 +124,7 @@ export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: Playl
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<SpotifyPlaylist | null>(null)
   const [quickSearches, setQuickSearches] = useState<typeof ALL_QUICK_SEARCHES>([])
+  const [error403, setError403] = useState(false)
 
   useEffect(() => {
     // Randomize 6-7 quick searches on component mount
@@ -134,15 +135,25 @@ export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: Playl
   const handleSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([])
+      setError403(false)
       return
     }
 
     setLoading(true)
+    setError403(false)  // Reset on new search
+
     try {
       const url = `/api/spotify/search?q=${encodeURIComponent(searchQuery)}`
       const response = await fetcher(url)
       const data = await response.json()
-      setResults(data.playlists || [])
+
+      // Check for 403 authorization error
+      if (response.status === 403 || data.isAuthorizationError) {
+        setError403(true)
+        setResults([])
+      } else {
+        setResults(data.playlists || [])
+      }
     } catch (error) {
       console.error('Search error:', error)
       setResults([])
@@ -288,7 +299,23 @@ export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: Playl
         </div>
       )}
 
-      {!loading && query && results.length === 0 && (
+      {error403 && (
+        <div className="bg-red-900/30 border-2 border-red-500/50 rounded-lg p-6 text-center mb-4">
+          <div className="text-3xl mb-3">🔒</div>
+          <h3 className="text-xl font-bold text-red-400 mb-2"
+              style={{ fontFamily: 'var(--font-righteous)' }}>
+            Access Restricted
+          </h3>
+          <p className="text-red-200 mb-3">
+            This Spotify app is in Development Mode and you're not on the allowed users list.
+          </p>
+          <p className="text-red-100 font-semibold">
+            Please contact the app author to be added to the whitelist.
+          </p>
+        </div>
+      )}
+
+      {!loading && !error403 && query && results.length === 0 && (
         <div className="text-center py-8">
           <p className="text-gray-400">No playlists found</p>
         </div>

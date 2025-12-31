@@ -6,10 +6,7 @@ const SPOTIFY_SCOPES = [
   'user-read-private',
   'playlist-read-private',
   'playlist-read-collaborative',
-  'streaming',
-  'user-modify-playback-state',
-  'user-read-playback-state',
-  'user-top-read', // For accessing user's top tracks
+  'user-top-read', // For accessing user's top tracks (used in test audio fallback)
 ].join(' ')
 
 async function refreshAccessToken(token: any) {

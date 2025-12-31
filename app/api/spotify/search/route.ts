@@ -24,6 +24,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ playlists })
   } catch (error) {
     console.error('Spotify search error:', error)
+
+    // Check if it's a structured error with status
+    if (typeof error === 'object' && error !== null && 'status' in error) {
+      const apiError = error as { status: number; message: string; isAuthorizationError?: boolean }
+      return NextResponse.json(
+        {
+          error: apiError.message,
+          isAuthorizationError: apiError.isAuthorizationError
+        },
+        { status: apiError.status }
+      )
+    }
+
     return NextResponse.json({ error: 'Search failed' }, { status: 500 })
   }
 }
