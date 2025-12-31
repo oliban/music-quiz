@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
                 await collection.updateOne(
                   { songSpotifyId: trivia.songId },
                   {
-                    $push: { questions: { $each: newQuestions } },
+                    $push: { questions: { $each: newQuestions } } as any,
                     $set: { updatedAt: new Date() }
                   }
                 )
