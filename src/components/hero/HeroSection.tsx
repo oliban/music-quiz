@@ -44,9 +44,6 @@ export function HeroSection({ session }: HeroSectionProps) {
   const buttonIcon = session ? '▶' : '▶'
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden cassette-gradient">
-      {/* Scan lines overlay */}
-      <div className="retro-scanlines absolute inset-0" />
-
       {/* OAuth Error (403 - Not Whitelisted) */}
       {showAuthError && (
         <div className="absolute top-4 left-4 right-4 z-20 max-w-2xl mx-auto">
@@ -64,7 +61,15 @@ export function HeroSection({ session }: HeroSectionProps) {
                   This Spotify app is in Development Mode and you're not on the allowed users list.
                 </p>
                 <p className="text-red-100 font-semibold">
-                  Please contact the app author to be added to the whitelist.
+                  <a
+                    href="https://forms.gle/FRZFgijrdqucJaaV8"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-white transition-colors"
+                  >
+                    Request access here
+                  </a>{' '}
+                  to be added to the whitelist.
                 </p>
                 <button
                   onClick={() => setShowAuthError(false)}

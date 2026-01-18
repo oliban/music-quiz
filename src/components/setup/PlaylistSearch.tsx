@@ -310,7 +310,15 @@ export function PlaylistSearch({ accessToken, onSelect, fetcher = fetch }: Playl
             This Spotify app is in Development Mode and you're not on the allowed users list.
           </p>
           <p className="text-red-100 font-semibold">
-            Please contact the app author to be added to the whitelist.
+            <a
+              href="https://forms.gle/FRZFgijrdqucJaaV8"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-white transition-colors"
+            >
+              Request access here
+            </a>{' '}
+            to be added to the whitelist.
           </p>
         </div>
       )}
