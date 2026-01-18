@@ -129,6 +129,7 @@ export function SetupClient({ accessToken }: SetupClientProps) {
   const [showTeamSetup, setShowTeamSetup] = useState(false)
   const [teamDraft, setTeamDraft] = useState<TeamDraft | null>(null)
   const [showTriviaOptions, setShowTriviaOptions] = useState(false)
+  const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [skipArtistQuestions, setSkipArtistQuestions] = useState(false)
   const [dominantArtists, setDominantArtists] = useState<Array<{artist: string, percentage: number}>>([])
   const [loadingPlaylist, setLoadingPlaylist] = useState(false)
@@ -312,39 +313,48 @@ export function SetupClient({ accessToken }: SetupClientProps) {
           Select a playlist to use for the quiz
         </p>
 
-        {/* Game Rules Info Box */}
-        <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
-          <div className="flex items-start gap-3 mb-3">
-            <span className="text-2xl">ℹ️</span>
-            <h2
-              className="text-xl font-bold text-white"
-              style={{ fontFamily: 'var(--font-righteous)' }}
-            >
-              How to Play
-            </h2>
-          </div>
-          <div className="space-y-2 text-gray-300">
-            <p className="flex items-start gap-2">
-              <span className="text-green-400 font-bold mt-1">🎯</span>
-              <span><span className="text-white font-semibold">Win Condition:</span> First team to reach <span className="text-yellow-400 font-bold">10 points</span> wins!</span>
-            </p>
-            <p className="flex items-start gap-2">
-              <span className="text-green-400 font-bold mt-1">✅</span>
-              <span><span className="text-white font-semibold">Correct Answer:</span> <span className="text-green-400 font-bold">+1 point</span></span>
-            </p>
-            <p className="flex items-start gap-2">
-              <span className="text-red-400 font-bold mt-1">❌</span>
-              <span><span className="text-white font-semibold">Wrong Answer:</span> <span className="text-red-400 font-bold">-1 point</span></span>
-            </p>
-            <p className="flex items-start gap-2">
-              <span className="text-blue-400 font-bold mt-1">🎵</span>
-              <span><span className="text-white font-semibold">Song Length:</span> Each song plays for <span className="text-blue-400 font-bold">30 seconds max</span></span>
-            </p>
-            <p className="flex items-start gap-2">
-              <span className="text-purple-400 font-bold mt-1">🧠</span>
-              <span><span className="text-white font-semibold">Trivia:</span> <span className="text-purple-400 font-bold">AI-generated trivia</span></span>
-            </p>
-          </div>
+        {/* Game Rules Info Box - Collapsible */}
+        <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg">
+          <button
+            onClick={() => setShowHowToPlay(!showHowToPlay)}
+            className="w-full p-6 flex justify-between items-center hover:bg-gray-700/30 transition-colors rounded-lg"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">ℹ️</span>
+              <h2
+                className="text-xl font-bold text-white"
+                style={{ fontFamily: 'var(--font-righteous)' }}
+              >
+                How to Play
+              </h2>
+            </div>
+            <span className="text-gray-400">{showHowToPlay ? '▼' : '▶'}</span>
+          </button>
+
+          {showHowToPlay && (
+            <div className="px-6 pb-6 space-y-2 text-gray-300">
+              <p className="flex items-start gap-2">
+                <span className="text-green-400 font-bold mt-1">🎯</span>
+                <span><span className="text-white font-semibold">Win Condition:</span> First team to reach <span className="text-yellow-400 font-bold">10 points</span> wins!</span>
+              </p>
+              <p className="flex items-start gap-2">
+                <span className="text-green-400 font-bold mt-1">✅</span>
+                <span><span className="text-white font-semibold">Correct Answer:</span> <span className="text-green-400 font-bold">+1 point</span></span>
+              </p>
+              <p className="flex items-start gap-2">
+                <span className="text-red-400 font-bold mt-1">❌</span>
+                <span><span className="text-white font-semibold">Wrong Answer:</span> <span className="text-red-400 font-bold">-1 point</span></span>
+              </p>
+              <p className="flex items-start gap-2">
+                <span className="text-blue-400 font-bold mt-1">🎵</span>
+                <span><span className="text-white font-semibold">Song Length:</span> Each song plays for <span className="text-blue-400 font-bold">30 seconds max</span></span>
+              </p>
+              <p className="flex items-start gap-2">
+                <span className="text-purple-400 font-bold mt-1">🧠</span>
+                <span><span className="text-white font-semibold">Trivia:</span> <span className="text-purple-400 font-bold">AI-generated trivia</span></span>
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Points to Win Selection */}
