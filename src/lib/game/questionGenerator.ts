@@ -1,13 +1,19 @@
 import type { SpotifyTrack } from '../spotify/types'
-import type { GameQuestion } from '@/src/store/gameStore'
+import type { GameQuestion, QuestionTypeCounts } from '@/src/store/gameStore'
 import { useGameStore } from '@/src/store/gameStore'
 import { LastFmClient } from '../lastfm/api'
 import { deduplicateStrings, shuffleArray } from '../utils/deduplication'
+
+export type QuestionContentType = 'song' | 'artist' | 'trivia'
 
 export interface QuestionGeneratorOptions {
   tracks: SpotifyTrack[]
   lastFmApiKey?: string
   dominantArtists?: string[]
+}
+
+export interface GeneratedQuestion extends GameQuestion {
+  selectedType: QuestionContentType
 }
 
 export class QuestionGenerator {
@@ -106,6 +112,89 @@ export class QuestionGenerator {
     return { isValid: true, warnings }
   }
 
+  /**
+   * Select question type using weighted random based on usage counts.
+   * Types that have been used less get higher probability.
+   */
+  private selectQuestionType(
+    counts: QuestionTypeCounts,
+    triviaAvailable: boolean,
+    artistAvailable: boolean
+  ): QuestionContentType {
+    const total = counts.song + counts.artist + counts.trivia
+    const targetPerType = total > 0 ? total / 3 : 1
+
+    // Calculate weights (higher = more likely to be selected)
+    const weights = {
+      song: Math.max(1, targetPerType - counts.song + 1),
+      artist: artistAvailable ? Math.max(1, targetPerType - counts.artist + 1) : 0,
+      trivia: triviaAvailable ? Math.max(1, targetPerType - counts.trivia + 1) : 0,
+    }
+
+    // If trivia and artist both unavailable, force song
+    if (weights.artist === 0 && weights.trivia === 0) {
+      return 'song'
+    }
+
+    // If trivia unavailable, redistribute to 50/50 song/artist
+    if (weights.trivia === 0 && weights.artist > 0) {
+      const songWeight = Math.max(1, targetPerType - counts.song + 1)
+      const artistWeight = Math.max(1, targetPerType - counts.artist + 1)
+      const totalWeight = songWeight + artistWeight
+      const random = Math.random() * totalWeight
+      return random < songWeight ? 'song' : 'artist'
+    }
+
+    // Weighted random selection
+    const totalWeight = weights.song + weights.artist + weights.trivia
+    let random = Math.random() * totalWeight
+
+    if (random < weights.song) return 'song'
+    random -= weights.song
+    if (random < weights.artist) return 'artist'
+    return 'trivia'
+  }
+
+  /**
+   * Select question format: 70% buzz-in, 30% multiple-choice.
+   * Falls back to buzz-in if not enough options for multiple-choice.
+   */
+  private selectQuestionFormat(type: QuestionContentType, track: SpotifyTrack): 'buzz-in' | 'multiple-choice' {
+    // Trivia is always multiple-choice
+    if (type === 'trivia') return 'multiple-choice'
+
+    // Check if we have enough options for multiple-choice
+    if (type === 'song') {
+      const uniqueSongNames = new Set(this.tracks.map(t => t.name.toLowerCase().trim()))
+      if (uniqueSongNames.size < 4) return 'buzz-in'
+    } else if (type === 'artist') {
+      const uniqueArtists = new Set(
+        this.tracks.flatMap(t => t.artists.map(a => a.name.toLowerCase().trim()))
+      )
+      if (uniqueArtists.size < 4) return 'buzz-in'
+    }
+
+    // 70% buzz-in, 30% multiple-choice
+    return Math.random() < 0.7 ? 'buzz-in' : 'multiple-choice'
+  }
+
+  /**
+   * Check if artist questions should be available for this track.
+   */
+  private isArtistQuestionAvailable(track: SpotifyTrack): boolean {
+    // Check if track is from a dominant artist
+    const trackArtist = track.artists[0]?.name.toLowerCase().trim()
+    if (this.dominantArtists.includes(trackArtist) || this.dominantArtists.includes('all')) {
+      return false
+    }
+
+    // Check if we have enough unique artists
+    const uniqueArtists = new Set(
+      this.tracks.flatMap(t => t.artists.map(a => a.name.toLowerCase().trim()))
+    )
+    return uniqueArtists.size >= 4
+  }
+
   private generateOptionRevealDelays(optionCount: number): number[] {
     // 40% chance: all options appear instantly
     if (Math.random() < 0.4) {
@@ -147,32 +236,118 @@ export class QuestionGenerator {
     return delays
   }
 
-  async generateQuestion(currentTrack: SpotifyTrack, questionIndex: number): Promise<GameQuestion> {
+  async generateQuestion(currentTrack: SpotifyTrack, questionIndex: number): Promise<GeneratedQuestion> {
     const triviaCategories = useGameStore.getState().triviaCategories || []
+    const questionTypeCounts = useGameStore.getState().questionTypeCounts
 
-    // If trivia is enabled, always try to use it if available
-    const shouldTryTrivia = triviaCategories.length > 0
+    // Check availability
+    const triviaAvailable = triviaCategories.length > 0 && this.triviaCache.has(currentTrack.id)
+    const artistAvailable = this.isArtistQuestionAvailable(currentTrack)
 
-    console.log(`🎲 Question for "${currentTrack.name}": shouldTryTrivia=${shouldTryTrivia}, categories=${triviaCategories.length}`)
+    console.log(`🎲 Question for "${currentTrack.name}": trivia=${triviaAvailable}, artist=${artistAvailable}, counts=${JSON.stringify(questionTypeCounts)}`)
 
-    if (shouldTryTrivia) {
+    // Select question TYPE using weighted random
+    const selectedType = this.selectQuestionType(questionTypeCounts, triviaAvailable, artistAvailable)
+    console.log(`📋 Selected type: ${selectedType}`)
+
+    // Generate question based on type
+    if (selectedType === 'trivia') {
       const triviaQ = await this.tryGetTriviaQuestion(currentTrack, triviaCategories)
       if (triviaQ) {
         console.log(`✅ Using trivia question for "${currentTrack.name}"`)
-        return triviaQ
+        return { ...triviaQ, selectedType: 'trivia' }
       }
-      console.log(`⚠️  No trivia available for "${currentTrack.name}", using standard question`)
-      // If trivia fetch fails, fall through to standard questions
+      // Fallback to song question if trivia fails
+      console.log(`⚠️  Trivia failed, falling back to song question`)
+      return this.generateSongQuestion(currentTrack, 'buzz-in')
     }
 
-    // Standard question logic (buzz-in or multiple-choice)
-    const relaxedMode = this.dominantArtists.includes('all')
-    const questionType: 'buzz-in' | 'multiple-choice' = relaxedMode || questionIndex % 2 === 0 ? 'buzz-in' : 'multiple-choice'
+    // Select FORMAT: 70% buzz-in, 30% multiple-choice
+    const format = this.selectQuestionFormat(selectedType, currentTrack)
+    console.log(`📋 Selected format: ${format}`)
 
-    if (questionType === 'buzz-in') {
-      return this.generateBuzzInQuestion(currentTrack)
+    if (selectedType === 'song') {
+      return this.generateSongQuestion(currentTrack, format)
     } else {
-      return await this.generateMultipleChoiceQuestion(currentTrack)
+      return this.generateArtistQuestion(currentTrack, format)
+    }
+  }
+
+  private generateSongQuestion(track: SpotifyTrack, format: 'buzz-in' | 'multiple-choice'): GeneratedQuestion {
+    if (format === 'buzz-in') {
+      return {
+        type: 'buzz-in',
+        track,
+        question: 'Name this song!',
+        correctAnswer: track.name,
+        selectedType: 'song',
+      }
+    }
+
+    // Multiple-choice song question
+    const wrongAnswers = this.getRandomTrackNames(3, track.id)
+    const validated = this.ensureUniqueWrongAnswers(track.name, wrongAnswers, 3)
+
+    if (!validated) {
+      // Fallback to buzz-in if not enough unique options
+      return {
+        type: 'buzz-in',
+        track,
+        question: 'Name this song!',
+        correctAnswer: track.name,
+        selectedType: 'song',
+      }
+    }
+
+    const options = shuffleArray([track.name, ...validated])
+    return {
+      type: 'multiple-choice',
+      track,
+      question: 'Which is the correct song title?',
+      correctAnswer: track.name,
+      options,
+      optionRevealDelays: this.generateOptionRevealDelays(options.length),
+      selectedType: 'song',
+    }
+  }
+
+  private generateArtistQuestion(track: SpotifyTrack, format: 'buzz-in' | 'multiple-choice'): GeneratedQuestion {
+    const artistName = track.artists[0]?.name || 'Unknown'
+
+    if (format === 'buzz-in') {
+      return {
+        type: 'buzz-in',
+        track,
+        question: 'Who is the artist?',
+        correctAnswer: artistName,
+        selectedType: 'artist',
+      }
+    }
+
+    // Multiple-choice artist question
+    const wrongAnswers = this.getRandomArtists(3, artistName)
+    const validated = this.ensureUniqueWrongAnswers(artistName, wrongAnswers, 3)
+
+    if (!validated) {
+      // Fallback to buzz-in if not enough unique options
+      return {
+        type: 'buzz-in',
+        track,
+        question: 'Who is the artist?',
+        correctAnswer: artistName,
+        selectedType: 'artist',
+      }
+    }
+
+    const options = shuffleArray([artistName, ...validated])
+    return {
+      type: 'multiple-choice',
+      track,
+      question: 'Who is the artist?',
+      correctAnswer: artistName,
+      options,
+      optionRevealDelays: this.generateOptionRevealDelays(options.length),
+      selectedType: 'artist',
     }
   }
 
@@ -372,7 +547,7 @@ export class QuestionGenerator {
   private async tryGetTriviaQuestion(
     track: SpotifyTrack,
     categories: string[]
-  ): Promise<GameQuestion | null> {
+  ): Promise<GeneratedQuestion | null> {
     // ONLY use cache - no API calls during gameplay for performance
     if (!this.triviaCache.has(track.id)) {
       return null  // No trivia available, use standard question
@@ -383,7 +558,7 @@ export class QuestionGenerator {
     return this.formatTriviaAsGameQuestion(track, randomQ)
   }
 
-  private formatTriviaAsGameQuestion(track: SpotifyTrack, triviaQ: any): GameQuestion {
+  private formatTriviaAsGameQuestion(track: SpotifyTrack, triviaQ: any): GeneratedQuestion {
     const allOptions = shuffleArray([
       triviaQ.correctAnswer,
       ...triviaQ.wrongAnswers.slice(0, 3)
@@ -397,6 +572,7 @@ export class QuestionGenerator {
       options: allOptions,
       optionRevealDelays: this.generateOptionRevealDelays(allOptions.length),
       category: triviaQ.category,
+      selectedType: 'trivia',
     }
   }
 }

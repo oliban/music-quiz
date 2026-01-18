@@ -50,6 +50,12 @@ export interface TeamStats {
   averageScore: number
 }
 
+export interface QuestionTypeCounts {
+  song: number
+  artist: number
+  trivia: number
+}
+
 interface GameState {
   // Setup
   playlist: SpotifyPlaylist | null
@@ -67,6 +73,7 @@ interface GameState {
   currentTrackIndex: number
   gameStarted: boolean
   questionStartTime: number | null
+  questionTypeCounts: QuestionTypeCounts
 
   // History
   gameHistory: GameResult[]
@@ -84,6 +91,8 @@ interface GameState {
   updateScore: (teamId: string, points: number) => void
   saveGameResult: (totalQuestions: number, endReason?: 'score_limit' | 'tracks_exhausted', winningScore?: number) => void
   getTeamStats: (teamName: string) => TeamStats
+  incrementQuestionTypeCount: (type: 'song' | 'artist' | 'trivia') => void
+  resetQuestionTypeCounts: () => void
   reset: () => void
 }
 
@@ -111,6 +120,7 @@ export const useGameStore = create<GameState>()(
       currentTrackIndex: 0,
       gameStarted: false,
       questionStartTime: null,
+      questionTypeCounts: { song: 0, artist: 0, trivia: 0 },
       gameHistory: [],
 
       // Actions
@@ -208,6 +218,19 @@ export const useGameStore = create<GameState>()(
         }
       },
 
+      incrementQuestionTypeCount: (type: 'song' | 'artist' | 'trivia') => {
+        set((state) => ({
+          questionTypeCounts: {
+            ...state.questionTypeCounts,
+            [type]: state.questionTypeCounts[type] + 1,
+          },
+        }))
+      },
+
+      resetQuestionTypeCounts: () => {
+        set({ questionTypeCounts: { song: 0, artist: 0, trivia: 0 } })
+      },
+
       reset: () =>
         set({
           playlist: null,
@@ -217,6 +240,7 @@ export const useGameStore = create<GameState>()(
           currentTrackIndex: 0,
           gameStarted: false,
           questionStartTime: null,
+          questionTypeCounts: { song: 0, artist: 0, trivia: 0 },
         }),
     }),
     {

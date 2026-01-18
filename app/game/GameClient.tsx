@@ -10,7 +10,7 @@ import { TouchZones } from '@/src/components/game/TouchZones'
 import { DualZoneLayout } from '@/src/components/game/DualZoneLayout'
 import { TeamZoneContent } from '@/src/components/game/TeamZoneContent'
 import { AlbumArtDisplay } from '@/src/components/game/AlbumArtDisplay'
-import { QuestionGenerator } from '@/src/lib/game/questionGenerator'
+import { QuestionGenerator, QuestionContentType } from '@/src/lib/game/questionGenerator'
 import { SpotifyClient } from '@/src/lib/spotify/api'
 import type { SpotifyTrack } from '@/src/lib/spotify/types'
 import type { GameQuestion } from '@/src/store/gameStore'
@@ -53,6 +53,7 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [skipArtistQuestions, setSkipArtistQuestions] = useState(false)
   const [dominantArtists, setDominantArtists] = useState<string[]>([])
   const [songsWithTrivia, setSongsWithTrivia] = useState<Set<string>>(new Set())
+  const [currentQuestionType, setCurrentQuestionType] = useState<QuestionContentType | null>(null)
   const questionGeneratorRef = useRef<QuestionGenerator | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hasAnswerRef = useRef(false)
@@ -380,6 +381,9 @@ export function GameClient({ accessToken }: GameClientProps) {
   const handleStartGame = async () => {
     if (!questionGeneratorRef.current || tracks.length === 0) return
 
+    // Reset question type counts for the new game
+    useGameStore.getState().resetQuestionTypeCounts()
+
     setGameStarted(true)
     await generateNextQuestion()
   }
@@ -452,6 +456,9 @@ export function GameClient({ accessToken }: GameClientProps) {
     const track = tracks[trackIndex]
     const question = await questionGeneratorRef.current.generateQuestion(track, trackIndex)
 
+    // Track the selected question type and increment count
+    setCurrentQuestionType(question.selectedType)
+    useGameStore.getState().incrementQuestionTypeCount(question.selectedType)
     setCurrentQuestion(question)
     setAnsweredCorrectly(false)
     setSelectedWrongAnswer(null)
@@ -640,12 +647,16 @@ export function GameClient({ accessToken }: GameClientProps) {
     setAnsweredCorrectly(false)
     setPlayedTrackIndices(new Set())
     setGameEndReason('tracks_exhausted')
+    setCurrentQuestionType(null)
     gameEndedRef.current = false
 
     // Reset all team scores to 0
     teams.forEach(team => {
       useGameStore.getState().updateScore(team.id, -team.score)
     })
+
+    // Reset question type counts for the new game
+    useGameStore.getState().resetQuestionTypeCounts()
 
     // Re-setup touch zones to ensure correct team mapping
     useGameStore.getState().setupTouchZones()
