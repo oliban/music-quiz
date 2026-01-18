@@ -36,23 +36,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'songs array required' }, { status: 400 })
     }
 
-    // Safety limit: prevent accidental massive costs
-    if (songs.length > 200) {
-      console.warn(`⚠️  Playlist has ${songs.length} songs. Maximum 200 songs allowed for trivia generation.`)
-      return NextResponse.json(
-        {
-          error: `Playlist too large. Maximum 200 songs allowed for trivia generation (you have ${songs.length} songs).`,
-          suggestion: 'Consider creating a smaller playlist or disabling some trivia categories.'
-        },
-        { status: 400 }
-      )
+    // Sample random songs if playlist is too large
+    const MAX_SONGS = 40
+    let selectedSongs = songs
+    if (songs.length > MAX_SONGS) {
+      // Shuffle and take first MAX_SONGS
+      selectedSongs = [...songs].sort(() => Math.random() - 0.5).slice(0, MAX_SONGS)
+      console.log(`📋 Playlist has ${songs.length} songs. Randomly selected ${MAX_SONGS} for trivia generation.`)
     }
 
     // Check for existing trivia and determine what's missing
     const { db } = await connectToDatabase()
     const collection = db.collection('trivia_questions')
 
-    const songIds = songs.map((s: Song) => s.id)
+    const songIds = selectedSongs.map((s: Song) => s.id)
     const existing = await collection
       .find({ songSpotifyId: { $in: songIds } })
       .toArray()
@@ -82,7 +79,7 @@ export async function POST(request: NextRequest) {
     ]
 
     // Determine which songs need new trivia (either no trivia at all, or missing requested categories)
-    const songsNeedingTrivia = songs.filter((s: Song) => {
+    const songsNeedingTrivia = selectedSongs.filter((s: Song) => {
       const existingCats = existingCategoriesMap.get(s.id)
       if (!existingCats) return true // No trivia at all
 
@@ -91,7 +88,7 @@ export async function POST(request: NextRequest) {
       return missingCategories.length > 0 // Has some but not all
     })
 
-    const fullyCachedCount = songs.length - songsNeedingTrivia.length
+    const fullyCachedCount = selectedSongs.length - songsNeedingTrivia.length
 
     console.log(`📊 Trivia status:`)
     console.log(`   - ${fullyCachedCount} songs fully cached (have all requested categories)`)
@@ -102,7 +99,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         message: 'All songs already have trivia for all requested categories',
         generated: 0,
-        reused: songs.length,
+        reused: selectedSongs.length,
       })
     }
 
@@ -210,7 +207,7 @@ export async function POST(request: NextRequest) {
     console.log(`\n${'='.repeat(60)}`)
     console.log(`🎉 TRIVIA GENERATION COMPLETE`)
     console.log(`${'='.repeat(60)}`)
-    console.log(`   Total songs requested: ${songs.length}`)
+    console.log(`   Total songs selected: ${selectedSongs.length}`)
     console.log(`   Songs fully cached (all categories): ${fullyCachedCount}`)
     console.log(`   Songs needing trivia: ${songsNeedingTrivia.length}`)
     console.log(`   Songs generated: ${generatedTrivia.length}`)
@@ -232,7 +229,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: 'Trivia generated successfully',
       generated: songsNeedingTrivia.length,
-      reused: songs.length - songsNeedingTrivia.length,
+      reused: selectedSongs.length - songsNeedingTrivia.length,
     })
   } catch (error: any) {
     console.error('Error generating trivia:', error)
