@@ -14,7 +14,7 @@ export function AlbumArtDisplay({ track, highlightSong = false, highlightArtist 
   const albumImage = track.album.images[0]?.url
 
   return (
-    <div className="flex flex-row items-center justify-center gap-6 sm:gap-8 animate-fadeIn pl-2 pr-8 sm:pl-4 sm:pr-12 py-8 min-w-[500px] sm:min-w-[600px]">
+    <div className="flex flex-row items-center justify-center gap-3 sm:gap-8 animate-fadeIn pl-2 pr-4 sm:pl-4 sm:pr-12 py-4 sm:py-8 sm:min-w-[600px]">
       {/* Album art - Polaroid-style frame */}
       {albumImage ? (
         <div
@@ -53,7 +53,7 @@ export function AlbumArtDisplay({ track, highlightSong = false, highlightArtist 
       )}
 
       {/* Track and artist info - HERO TYPOGRAPHY on the right */}
-      <div className="text-left flex-1 min-w-0 max-w-none pr-4 sm:pr-8">
+      <div className="text-left flex-1 min-w-[320px] sm:min-w-0 max-w-none pr-4 sm:pr-8">
         {/* Song title - MASSIVE AND BOLD */}
         <div
           className={`text-3xl sm:text-4xl md:text-6xl font-black mb-2 sm:mb-3 leading-tight ${
