@@ -13,16 +13,30 @@ export async function connectToDatabase() {
     throw new Error('MONGODB_URI environment variable not set')
   }
 
-  const client = new MongoClient(uri, {
-    serverSelectionTimeoutMS: 5000,
-    maxPoolSize: 10,
-  })
+  console.log('🔗 Attempting MongoDB connection...')
 
-  await client.connect()
-  const db = client.db('mixtape-duel')
+  try {
+    // Let MongoDB driver handle TLS automatically for +srv URIs
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 10000,
+      maxPoolSize: 10,
+    })
 
-  cachedClient = client
-  cachedDb = db
+    await client.connect()
+    const db = client.db('mixtape-duel')
 
-  return { client, db }
+    cachedClient = client
+    cachedDb = db
+
+    console.log('✅ MongoDB connected successfully')
+
+    return { client, db }
+  } catch (error: any) {
+    console.error('❌ MongoDB connection failed:', {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+    })
+    throw error
+  }
 }

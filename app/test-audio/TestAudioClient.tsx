@@ -149,9 +149,6 @@ export function TestAudioClient({ accessToken }: TestAudioClientProps) {
 
   return (
     <div className="relative min-h-screen cassette-gradient p-8 overflow-hidden">
-      {/* Scan lines overlay */}
-      <div className="retro-scanlines absolute inset-0" />
-
       <div className="relative z-10 max-w-2xl mx-auto">
         <div className="flex justify-end mb-4">
           <button
