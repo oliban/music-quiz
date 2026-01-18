@@ -39,6 +39,7 @@ export function GameClient({ accessToken }: GameClientProps) {
   const [buzzedTeam, setBuzzedTeam] = useState<string | null>(null)
   const [showAnswerPrompt, setShowAnswerPrompt] = useState(false)
   const [disqualifiedTeams, setDisqualifiedTeams] = useState<Set<string>>(new Set())
+  const [skippedTeams, setSkippedTeams] = useState<Set<string>>(new Set())
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(30) // 30 second preview
@@ -468,6 +469,7 @@ export function GameClient({ accessToken }: GameClientProps) {
     setShowNoAnswerDialog(false)
     setShowAlbumArt(false)
     setDisqualifiedTeams(new Set())
+    setSkippedTeams(new Set())
     hasAnswerRef.current = false
     trackHasStartedRef.current = false
 
@@ -866,6 +868,29 @@ export function GameClient({ accessToken }: GameClientProps) {
     }
   }
 
+  const handleSkip = (teamId: string) => {
+    if (!currentQuestion) return
+
+    // Don't allow skip if team already buzzed, already skipped, or is disqualified
+    if (buzzedTeam || skippedTeams.has(teamId) || disqualifiedTeams.has(teamId)) return
+
+    const newSkippedTeams = new Set([...skippedTeams, teamId])
+    setSkippedTeams(newSkippedTeams)
+
+    // Check if all teams have either skipped or are disqualified
+    const allTeamsPassedOrDisqualified = teams.every(
+      team => newSkippedTeams.has(team.id) || disqualifiedTeams.has(team.id)
+    )
+
+    if (allTeamsPassedOrDisqualified) {
+      // Show album art briefly before moving on
+      setShowAlbumArt(true)
+      setTimeout(() => {
+        handleNextQuestion()
+      }, 2000)
+    }
+  }
+
   // Adaptive font sizing based on question length
   const getQuestionFontSize = (questionText: string, isCountdown: boolean) => {
     const length = questionText.length
@@ -911,14 +936,16 @@ export function GameClient({ accessToken }: GameClientProps) {
         </button>
       )}
 
-      {/* Touch zones - only visible for buzz-in questions and hidden when showing dialogs */}
-      {(!currentQuestion || currentQuestion.type === 'buzz-in') && !showAlbumArt && !showAnswerPrompt && !showNoAnswerDialog && (
+      {/* Touch zones and skip buttons - visible during gameplay, hidden when showing dialogs */}
+      {currentQuestion && !showAlbumArt && !showAnswerPrompt && !showNoAnswerDialog && (
         <TouchZones
           zones={touchZones}
           teams={teams}
           disqualifiedTeams={disqualifiedTeams}
+          skippedTeams={skippedTeams}
           celebratingTeam={celebratingTeam}
           onZoneTouch={handleZoneTouch}
+          onSkip={handleSkip}
           currentQuestionType={currentQuestion?.type || null}
           buzzedTeam={buzzedTeam}
         />
@@ -1060,13 +1087,19 @@ export function GameClient({ accessToken }: GameClientProps) {
                       <>
                         {/* Upper team question - rotated 180° */}
                         <div className="absolute top-2 sm:top-4 left-0 right-0 px-4 pointer-events-none">
-                          <div className="flex items-center justify-center gap-3 sm:gap-4 rotate-180 relative">
+                          <div className="flex flex-col items-center justify-center gap-1 rotate-180 relative">
                             <div className={`text-yellow-400 font-bold text-center max-w-4xl transition-all duration-300 ${getQuestionFontSize(currentQuestion.question, isPlaying && duration - currentTime <= 10 && duration - currentTime > 0)} ${isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 ? 'animate-pulse-strong' : ''}`} style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
                               {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
                                 /^(song|artist)$/i.test(part) ? (
                                   <span key={i} className="text-white animate-pulse" style={{ textShadow: '0 0 30px rgba(255,255,255,1), 0 0 60px rgba(255,255,255,0.8), 0 0 90px rgba(255,255,255,0.6), 0 0 120px rgba(255,255,255,0.4)' }}>{part}</span>
                                 ) : part
                               )}
+                            </div>
+                            {/* Score display - upper team sees their score first */}
+                            <div className="text-xs sm:text-sm opacity-70" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                              <span style={{ color: teams[0]?.color || '#3B82F6' }}>{teams[0]?.score || 0}</span>
+                              <span className="text-white/60 mx-1">-</span>
+                              <span style={{ color: teams[1]?.color || '#EC4899' }}>{teams[1]?.score || 0}</span>
                             </div>
                             {/* Countdown timer for upper team - absolute positioned to not affect layout */}
                             {isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 && (
@@ -1088,7 +1121,13 @@ export function GameClient({ accessToken }: GameClientProps) {
 
                         {/* Lower team question - normal orientation */}
                         <div className="absolute bottom-2 sm:bottom-4 left-0 right-0 px-4 pointer-events-none">
-                          <div className="flex items-center justify-center gap-3 sm:gap-4 relative">
+                          <div className="flex flex-col items-center justify-center gap-1 relative">
+                            {/* Score display - lower team sees their score first */}
+                            <div className="text-xs sm:text-sm opacity-70" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                              <span style={{ color: teams[1]?.color || '#EC4899' }}>{teams[1]?.score || 0}</span>
+                              <span className="text-white/60 mx-1">-</span>
+                              <span style={{ color: teams[0]?.color || '#3B82F6' }}>{teams[0]?.score || 0}</span>
+                            </div>
                             <div className={`text-yellow-400 font-bold text-center max-w-4xl transition-all duration-300 ${getQuestionFontSize(currentQuestion.question, isPlaying && duration - currentTime <= 10 && duration - currentTime > 0)} ${isPlaying && duration - currentTime <= 10 && duration - currentTime > 0 ? 'animate-pulse-strong' : ''}`} style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
                               {currentQuestion.question.split(/(song|artist)/i).map((part, i) =>
                                 /^(song|artist)$/i.test(part) ? (

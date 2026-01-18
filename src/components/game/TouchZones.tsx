@@ -8,8 +8,10 @@ interface TouchZonesProps {
   zones: TouchZone[]
   teams: Team[]
   disqualifiedTeams: Set<string>
+  skippedTeams: Set<string>
   celebratingTeam: string | null
   onZoneTouch: (zoneId: string) => void
+  onSkip: (teamId: string) => void
   currentQuestionType?: 'buzz-in' | 'multiple-choice' | 'trivia' | null
   buzzedTeam?: string | null
 }
@@ -24,7 +26,7 @@ const ZONE_ROTATIONS: Record<TouchZone['position'], string> = {
   'center-bottom': '',
 }
 
-export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, onZoneTouch, currentQuestionType, buzzedTeam }: TouchZonesProps) {
+export function TouchZones({ zones, teams, disqualifiedTeams, skippedTeams, celebratingTeam, onZoneTouch, onSkip, currentQuestionType, buzzedTeam }: TouchZonesProps) {
   const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map())
   const soundLoadErrors = useRef<Set<string>>(new Set())
 
@@ -69,63 +71,100 @@ export function TouchZones({ zones, teams, disqualifiedTeams, celebratingTeam, o
     <>
       {zones.map((zone) => {
         const isDisqualified = disqualifiedTeams.has(zone.teamId)
+        const hasSkipped = skippedTeams.has(zone.teamId)
         const isCelebrating = celebratingTeam === zone.teamId
-        const team = teams.find(t => t.id === zone.teamId)
-        const score = team?.score ?? 0
+        const isTopZone = zone.position === 'center-top'
+
+        const showBuzzer = currentQuestionType === 'buzz-in'
 
         return (
-          <button
-            key={zone.id}
-            onTouchStart={() => handleTouchStart(zone.id)}
-            onClick={() => handleTouchStart(zone.id)}
-            className={`absolute w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-4 sm:border-6 transition-all active:scale-95 active:shadow-inner z-[100] ${ZONE_STYLES[zone.position]} ${ZONE_ROTATIONS[zone.position]} ${
-              isDisqualified
-                ? 'border-red-500 opacity-50'
-                : isCelebrating
-                ? 'border-yellow-400 border-6 sm:border-8 animate-pulse scale-110'
-                : 'border-white/30'
-            }`}
-            style={{
-              background: isCelebrating
-                ? zone.color
-                : `linear-gradient(135deg, ${zone.color} 0%, ${zone.color}dd 50%, ${zone.color}99 100%)`,
-              boxShadow: isCelebrating
-                ? `0 0 40px ${zone.color}, 0 0 80px ${zone.color}, 0 20px 40px rgba(0,0,0,0.5)`
-                : '0 8px 16px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.3)'
-            }}
-          >
-            {/* Score display */}
-            {!isDisqualified && !isCelebrating && (
-              <div className="absolute inset-0 flex items-center justify-center">
+          <div key={zone.id}>
+            {/* Skip button - positioned in upper left corner of each player's area */}
+            <button
+              onTouchStart={(e) => { e.stopPropagation(); onSkip(zone.teamId); }}
+              onClick={(e) => { e.stopPropagation(); onSkip(zone.teamId); }}
+              disabled={hasSkipped || isDisqualified}
+              className={`absolute z-[100] w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-full transition-all active:scale-95 ${
+                hasSkipped ? 'opacity-40' : 'opacity-60 hover:opacity-90'
+              } ${isTopZone ? 'top-[29%] left-4 rotate-180' : 'top-[66%] left-4'}`}
+              style={{
+                background: hasSkipped
+                  ? 'linear-gradient(180deg, #4a4a4a 0%, #2a2a2a 100%)'
+                  : 'linear-gradient(180deg, #6b7280 0%, #374151 50%, #1f2937 100%)',
+                boxShadow: hasSkipped
+                  ? 'inset 0 2px 4px rgba(0,0,0,0.5)'
+                  : '0 3px 6px rgba(0,0,0,0.5), inset 0 1px 3px rgba(255,255,255,0.1)',
+                border: '2px solid #4b5563',
+              }}
+            >
+              <span className="text-white/80 text-[10px] sm:text-xs font-bold" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+                {hasSkipped ? '⏭' : 'SKIP'}
+              </span>
+            </button>
+
+            {/* Main buzzer button - only for buzz-in questions */}
+            {showBuzzer && <button
+              onTouchStart={() => handleTouchStart(zone.id)}
+              onClick={() => handleTouchStart(zone.id)}
+              className={`absolute z-[100] ${ZONE_STYLES[zone.position]} ${ZONE_ROTATIONS[zone.position]} ${
+                isDisqualified ? 'opacity-50' : ''
+              } ${isCelebrating ? 'scale-110' : ''} transition-transform`}
+            >
+              {/* Outer base/housing - dark ring */}
+              <div
+                className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 rounded-full flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(180deg, #4a4a4a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+                  boxShadow: isCelebrating
+                    ? `0 0 40px ${zone.color}, 0 0 80px ${zone.color}, 0 8px 20px rgba(0,0,0,0.8)`
+                    : '0 8px 20px rgba(0,0,0,0.8), 0 4px 8px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.1)',
+                  border: '3px solid #2a2a2a',
+                }}
+              >
+                {/* Inner dome button */}
                 <div
-                  className="text-white text-3xl sm:text-4xl md:text-5xl font-bold"
+                  className={`w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 rounded-full relative transition-all duration-75 ${
+                    isCelebrating ? 'animate-pulse' : ''
+                  } active:scale-95 active:translate-y-1`}
                   style={{
-                    textShadow: TEXT_SHADOWS.score
+                    background: isCelebrating
+                      ? `radial-gradient(circle at 30% 30%, ${zone.color} 0%, ${zone.color}dd 40%, ${zone.color}99 100%)`
+                      : `radial-gradient(circle at 30% 30%, ${zone.color} 0%, ${zone.color}cc 50%, ${zone.color}88 100%)`,
+                    boxShadow: isCelebrating
+                      ? `0 0 30px ${zone.color}, inset 0 -4px 12px rgba(0,0,0,0.4), inset 0 4px 8px rgba(255,255,255,0.4)`
+                      : `0 6px 12px rgba(0,0,0,0.5), inset 0 -4px 12px rgba(0,0,0,0.4), inset 0 4px 8px rgba(255,255,255,0.3)`,
+                    border: isDisqualified ? '3px solid #ef4444' : isCelebrating ? `3px solid #facc15` : '2px solid rgba(255,255,255,0.2)',
                   }}
                 >
-                  {score}
+                  {/* Glossy highlight */}
+                  <div
+                    className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-4 sm:w-14 sm:h-5 md:w-16 md:h-6 rounded-full opacity-60"
+                    style={{
+                      background: 'linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 100%)',
+                    }}
+                  />
+
+                  {/* Content overlay */}
+                  {isDisqualified && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div
+                        className="text-white text-4xl sm:text-5xl md:text-6xl font-bold"
+                        style={{ textShadow: TEXT_SHADOWS.score }}
+                      >
+                        ✗
+                      </div>
+                    </div>
+                  )}
+                  {isCelebrating && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-yellow-400 text-5xl sm:text-6xl md:text-7xl animate-bounce">🎉</div>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-            {isDisqualified && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div
-                  className="text-white text-4xl sm:text-5xl md:text-6xl font-bold"
-                  style={{
-                    textShadow: TEXT_SHADOWS.score
-                  }}
-                >
-                  ✗
-                </div>
-              </div>
-            )}
-            {isCelebrating && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-yellow-400 text-5xl sm:text-6xl md:text-7xl animate-bounce">🎉</div>
-              </div>
-            )}
-            <span className="sr-only">Team Zone {zone.teamId}</span>
-          </button>
+              <span className="sr-only">Team Zone {zone.teamId}</span>
+            </button>}
+          </div>
         )
       })}
     </>
