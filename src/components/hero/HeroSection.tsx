@@ -24,11 +24,12 @@ export function HeroSection({ session }: HeroSectionProps) {
     setShowWarning(!hasTouch)
 
     // Check for OAuth callback error (403 from Spotify)
+    // Only show error if not already logged in
     const error = searchParams.get('error')
-    if (error === 'OAuthCallback') {
+    if (error === 'OAuthCallback' && !session) {
       setShowAuthError(true)
     }
-  }, [searchParams])
+  }, [searchParams, session])
 
   const handleButtonClick = () => {
     if (session) {
