@@ -1,8 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useGameStore } from '@/src/store/gameStore'
-import type { Team } from '@/src/store/gameStore'
+import { useState, useEffect } from 'react'
 
 const TEAM_COLORS = [
   '#00D9FF', // electric-blue
@@ -82,19 +80,30 @@ function getRandomSound(excludeSound?: string): string {
   return availableSounds[randomIndex].value
 }
 
-interface TeamSetupProps {
-  onComplete: () => void
+export interface TeamDraft {
+  names: string[]
+  sounds: string[]
 }
 
-export function TeamSetup({ onComplete }: TeamSetupProps) {
-  const [teamNames, setTeamNames] = useState<string[]>(() => getRandomTeamNames(2))
+interface TeamSetupProps {
+  onChange: (draft: TeamDraft) => void
+  initialNames?: string[]
+  initialSounds?: string[]
+}
+
+export function TeamSetup({ onChange, initialNames, initialSounds }: TeamSetupProps) {
+  const [teamNames, setTeamNames] = useState<string[]>(() => initialNames || getRandomTeamNames(2))
   const [teamSounds, setTeamSounds] = useState<string[]>(() => {
+    if (initialSounds) return initialSounds
     const firstSound = getRandomSound()
     const secondSound = getRandomSound(firstSound)
     return [firstSound, secondSound]
   })
-  const setTeams = useGameStore((state) => state.setTeams)
-  const setupTouchZones = useGameStore((state) => state.setupTouchZones)
+
+  // Notify parent of changes
+  useEffect(() => {
+    onChange({ names: teamNames, sounds: teamSounds })
+  }, [teamNames, teamSounds, onChange])
 
   const handleTeamNameChange = (index: number, name: string) => {
     const newNames = [...teamNames]
@@ -132,20 +141,6 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
     // Auto-play preview with cache-busting
     const audio = new Audio(`${sound}?v=${Date.now()}`)
     audio.play().catch(err => console.warn('Sound preview failed:', err))
-  }
-
-  const handleComplete = () => {
-    const teams: Team[] = teamNames.map((name, index) => ({
-      id: `team-${index + 1}`,
-      name: name || `Team ${index + 1}`,
-      score: 0,
-      color: TEAM_COLORS[index],
-      buzzerSound: teamSounds[index],
-    }))
-
-    setTeams(teams)
-    setupTouchZones()
-    onComplete()
   }
 
   return (
@@ -218,28 +213,6 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
             </div>
           )
         })}
-      </div>
-
-      <div className="flex flex-col items-center">
-        <button
-          onClick={handleComplete}
-          className="w-full text-white font-bold py-4 px-8 rounded-full text-lg transition-all duration-300 transform hover:scale-105"
-          style={{
-            backgroundColor: 'var(--neon-pink)',
-            fontFamily: 'var(--font-righteous)',
-            boxShadow: '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--hot-magenta)';
-            e.currentTarget.style.boxShadow = '0 0 30px var(--hot-magenta), 0 0 60px var(--hot-magenta)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--neon-pink)';
-            e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
-          }}
-        >
-          NEXT
-        </button>
       </div>
     </>
   )

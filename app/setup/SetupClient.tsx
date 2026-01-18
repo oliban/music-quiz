@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { PlaylistSearch } from '@/src/components/setup/PlaylistSearch'
-import { TeamSetup } from '@/src/components/setup/TeamSetup'
+import { TeamSetup, type TeamDraft } from '@/src/components/setup/TeamSetup'
 import { useGameStore } from '@/src/store/gameStore'
 import { SpotifyClient } from '@/src/lib/spotify/api'
 import type { SpotifyPlaylist } from '@/src/lib/spotify/types'
@@ -131,6 +131,8 @@ export function SetupClient({ accessToken }: SetupClientProps) {
   const [showContinue, setShowContinue] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showTeamSetup, setShowTeamSetup] = useState(false)
+  const [teamDraft, setTeamDraft] = useState<TeamDraft | null>(null)
+  const [showTriviaOptions, setShowTriviaOptions] = useState(false)
   const [skipArtistQuestions, setSkipArtistQuestions] = useState(false)
   const [dominantArtists, setDominantArtists] = useState<Array<{artist: string, percentage: number}>>([])
   const [loadingPlaylist, setLoadingPlaylist] = useState(false)
@@ -206,7 +208,20 @@ export function SetupClient({ accessToken }: SetupClientProps) {
   }
 
   const handleStartGame = async () => {
-    if (selectedPlaylist && persistedTeams.length > 0) {
+    const hasTeams = persistedTeams.length > 0 || teamDraft
+    if (selectedPlaylist && hasTeams) {
+      // Save teams from draft if we have one
+      if (teamDraft) {
+        const teams: Team[] = teamDraft.names.map((name, index) => ({
+          id: `team-${index + 1}`,
+          name: name || `Team ${index + 1}`,
+          score: 0,
+          color: TEAM_COLORS[index],
+          buzzerSound: teamDraft.sounds[index],
+        }))
+        setTeams(teams)
+      }
+
       // Set playlist
       setPlaylist(selectedPlaylist)
       setupTouchZones()
@@ -263,11 +278,17 @@ export function SetupClient({ accessToken }: SetupClientProps) {
 
   return (
     <div className="relative min-h-screen cassette-gradient p-8 overflow-hidden">
-      {/* Scan lines overlay */}
-      <div className="retro-scanlines absolute inset-0" />
-
       <div className="relative z-10 max-w-4xl mx-auto">
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end gap-4 mb-4">
+          {gameHistory.length > 0 && (
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="text-gray-300 hover:text-white transition-colors text-sm"
+              style={{ fontFamily: 'var(--font-geist-sans)' }}
+            >
+              📊 Game History
+            </button>
+          )}
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
             className="text-gray-300 hover:text-white transition-colors text-sm"
@@ -325,7 +346,7 @@ export function SetupClient({ accessToken }: SetupClientProps) {
             </p>
             <p className="flex items-start gap-2">
               <span className="text-purple-400 font-bold mt-1">🧠</span>
-              <span><span className="text-white font-semibold">Trivia:</span> AI generates <span className="text-purple-400 font-bold">1 question</span> per song (maximizes coverage across playlist)</span>
+              <span><span className="text-white font-semibold">Trivia:</span> <span className="text-purple-400 font-bold">AI-generated trivia</span></span>
             </p>
           </div>
         </div>
@@ -363,107 +384,101 @@ export function SetupClient({ accessToken }: SetupClientProps) {
         </div>
 
         {/* Trivia Categories Selection */}
-        <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-2xl">🧠</span>
-            <h2
-              className="text-xl font-bold text-white"
-              style={{ fontFamily: 'var(--font-righteous)' }}
-            >
-              Trivia Categories
-            </h2>
-          </div>
-          <p className="text-gray-300 text-sm mb-4">
-            Select categories for AI-generated trivia questions (up to 10 per song)
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
-            {TRIVIA_CATEGORIES.map(category => {
-              const isSelected = triviaCategories.includes(category.id)
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => {
-                    if (isSelected) {
-                      setTriviaCategories(triviaCategories.filter(id => id !== category.id))
-                    } else {
-                      setTriviaCategories([...triviaCategories, category.id])
-                    }
-                  }}
-                  className={`p-2 rounded-lg border-2 transition-all text-left ${
-                    isSelected
-                      ? 'border-neon-pink bg-neon-pink/20'
-                      : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
-                  }`}
+        <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg">
+          <button
+            onClick={() => setShowTriviaOptions(!showTriviaOptions)}
+            className="w-full p-6 flex justify-between items-center hover:bg-gray-700/30 transition-colors rounded-lg"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🧠</span>
+              <div className="text-left">
+                <h2
+                  className="text-xl font-bold text-white"
+                  style={{ fontFamily: 'var(--font-righteous)' }}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">{category.icon}</span>
-                    <div
-                      className="font-bold text-white text-xs"
-                      style={{ fontFamily: 'var(--font-righteous)' }}
+                  Trivia Categories
+                </h2>
+                <p className="text-gray-400 text-sm">
+                  20-30% of questions will be AI-generated trivia
+                </p>
+              </div>
+            </div>
+            <span className="text-gray-400">{showTriviaOptions ? '▼' : '▶'}</span>
+          </button>
+
+          {showTriviaOptions && (
+            <div className="px-6 pb-6">
+              <p className="text-gray-300 text-sm mb-4">
+                Select categories for trivia questions
+              </p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
+                {TRIVIA_CATEGORIES.map(category => {
+                  const isSelected = triviaCategories.includes(category.id)
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => {
+                        if (isSelected) {
+                          setTriviaCategories(triviaCategories.filter(id => id !== category.id))
+                        } else {
+                          setTriviaCategories([...triviaCategories, category.id])
+                        }
+                      }}
+                      className={`p-2 rounded-lg border-2 transition-all text-left ${
+                        isSelected
+                          ? 'border-neon-pink bg-neon-pink/20'
+                          : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
+                      }`}
                     >
-                      {category.name}
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-400">{category.description}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-lg">{category.icon}</span>
+                        <div
+                          className="font-bold text-white text-xs"
+                          style={{ fontFamily: 'var(--font-righteous)' }}
+                        >
+                          {category.name}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400">{category.description}</div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTriviaCategories(TRIVIA_CATEGORIES.map(c => c.id))}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+                  style={{ fontFamily: 'var(--font-righteous)' }}
+                >
+                  Select All
                 </button>
-              )
-            })}
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => setTriviaCategories(TRIVIA_CATEGORIES.map(c => c.id))}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
-              style={{ fontFamily: 'var(--font-righteous)' }}
-            >
-              Select All
-            </button>
-            <button
-              onClick={() => {
-                // Randomly select 3-7 categories
-                const count = Math.floor(Math.random() * 5) + 3
-                const shuffled = [...TRIVIA_CATEGORIES].sort(() => Math.random() - 0.5)
-                setTriviaCategories(shuffled.slice(0, count).map(c => c.id))
-              }}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
-              style={{ fontFamily: 'var(--font-righteous)' }}
-            >
-              🎲 Random
-            </button>
-            <button
-              onClick={() => setTriviaCategories([])}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
-              style={{ fontFamily: 'var(--font-righteous)' }}
-            >
-              Clear All
-            </button>
-          </div>
-
-          {triviaCategories.length > 0 && (
-            <div className="mt-4 text-xs text-gray-400">
-              💡 Trivia will be generated in the background while you play
+                <button
+                  onClick={() => {
+                    const count = Math.floor(Math.random() * 5) + 3
+                    const shuffled = [...TRIVIA_CATEGORIES].sort(() => Math.random() - 0.5)
+                    setTriviaCategories(shuffled.slice(0, count).map(c => c.id))
+                  }}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+                  style={{ fontFamily: 'var(--font-righteous)' }}
+                >
+                  🎲 Random
+                </button>
+                <button
+                  onClick={() => setTriviaCategories([])}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+                  style={{ fontFamily: 'var(--font-righteous)' }}
+                >
+                  Clear All
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {gameHistory.length > 0 && (
-          <div className="mb-8">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="w-full bg-gray-800/80 hover:bg-gray-700/80 border border-gray-700 rounded-lg p-4 transition-colors flex justify-between items-center"
-            >
-              <span
-                className="text-white font-bold text-lg"
-                style={{ fontFamily: 'var(--font-righteous)' }}
-              >
-                📊 Game History ({gameHistory.length} games)
-              </span>
-              <span className="text-gray-400">{showHistory ? '▼' : '▶'}</span>
-            </button>
-
-            {showHistory && (
-              <div className="mt-4 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
+        {showHistory && gameHistory.length > 0 && (
+          <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
                 {/* Team Statistics */}
                 {uniqueTeamNames.length > 0 && (
                   <div className="mb-6">
@@ -554,8 +569,6 @@ export function SetupClient({ accessToken }: SetupClientProps) {
                     ))}
                   </div>
                 </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -643,9 +656,11 @@ export function SetupClient({ accessToken }: SetupClientProps) {
 
         {showTeamSetup && (
           <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
-            <TeamSetup onComplete={() => {
-              setShowTeamSetup(false)
-            }} />
+            <TeamSetup
+              onChange={setTeamDraft}
+              initialNames={persistedTeams.length > 0 ? persistedTeams.map(t => t.name) : undefined}
+              initialSounds={persistedTeams.length > 0 ? persistedTeams.map(t => t.buzzerSound) : undefined}
+            />
           </div>
         )}
 
@@ -653,13 +668,11 @@ export function SetupClient({ accessToken }: SetupClientProps) {
           <>
             {persistedTeams.length === 0 && !showTeamSetup && (
               <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
-                <TeamSetup onComplete={() => {
-                  // Teams are now set up, component will re-render
-                }} />
+                <TeamSetup onChange={setTeamDraft} />
               </div>
             )}
 
-            {persistedTeams.length > 0 && !showTeamSetup && (
+            {(persistedTeams.length > 0 || teamDraft) && (
               <>
                 <div className="mb-8 bg-gray-800/80 border border-gray-700 rounded-lg p-6">
                   <PlaylistSearch accessToken={accessToken} onSelect={handlePlaylistSelect} />
@@ -697,11 +710,8 @@ export function SetupClient({ accessToken }: SetupClientProps) {
               </div>
             )}
 
-            {selectedPlaylist && (
+            {selectedPlaylist && (persistedTeams.length > 0 || teamDraft) && (
               <div className="mt-8 flex flex-col items-center gap-2">
-                <p className="text-gray-400 text-sm" style={{ fontFamily: 'var(--font-geist-sans)' }}>
-                  Select playlist
-                </p>
                 <button
                   onClick={handleStartGame}
                   className="text-white font-bold py-4 px-12 rounded-full text-lg transition-all duration-300 transform hover:scale-105"
@@ -719,7 +729,7 @@ export function SetupClient({ accessToken }: SetupClientProps) {
                     e.currentTarget.style.boxShadow = '0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink)';
                   }}
                 >
-                  NEXT
+                  LET'S PLAY!
                 </button>
               </div>
             )}
