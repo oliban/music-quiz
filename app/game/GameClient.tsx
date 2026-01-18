@@ -1177,7 +1177,10 @@ export function GameClient({ accessToken }: GameClientProps) {
                           </button>
                         )}
 
-                        <AlbumArtDisplay track={currentQuestion.track} />
+                        <AlbumArtDisplay
+                          track={currentQuestion.track}
+                          triviaAnswer={currentQuestion.type === 'trivia' ? currentQuestion.correctAnswer : undefined}
+                        />
                       </div>
 
                       {/* Songs remaining warning - discreet but alarming */}
@@ -1327,6 +1330,7 @@ export function GameClient({ accessToken }: GameClientProps) {
                         track={currentQuestion.track}
                         highlightSong={currentQuestion.question.toLowerCase().includes('song')}
                         highlightArtist={currentQuestion.question.toLowerCase().includes('artist')}
+                        triviaAnswer={currentQuestion.type === 'trivia' ? currentQuestion.correctAnswer : undefined}
                       />
                     </div>
                   </div>

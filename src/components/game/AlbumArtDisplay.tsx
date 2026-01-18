@@ -7,9 +7,10 @@ interface AlbumArtDisplayProps {
   track: SpotifyTrack
   highlightSong?: boolean
   highlightArtist?: boolean
+  triviaAnswer?: string
 }
 
-export function AlbumArtDisplay({ track, highlightSong = false, highlightArtist = false }: AlbumArtDisplayProps) {
+export function AlbumArtDisplay({ track, highlightSong = false, highlightArtist = false, triviaAnswer }: AlbumArtDisplayProps) {
   // Get the largest album image (usually first in array)
   const albumImage = track.album.images[0]?.url
 
@@ -87,6 +88,19 @@ export function AlbumArtDisplay({ track, highlightSong = false, highlightArtist 
         >
           {track.album.name}
         </div>
+
+        {/* Trivia answer - shown only for trivia questions */}
+        {triviaAnswer && (
+          <div
+            className="mt-4 sm:mt-6 text-xl sm:text-2xl md:text-3xl font-bold text-yellow-400"
+            style={{
+              textShadow: '0 0 20px rgba(251,191,36,0.8), 0 0 40px rgba(251,191,36,0.6), 0 4px 20px rgba(0,0,0,0.8)'
+            }}
+          >
+            <span className="text-gray-400 text-base sm:text-lg font-normal mr-2">Answer:</span>
+            {triviaAnswer}
+          </div>
+        )}
       </div>
     </div>
   )
